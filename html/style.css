@@ -1,3 +1,8 @@
+/* ==========================================
+   FILE: html/style.css
+   ========================================== */
+
+/* Import Western Fontu */
 @font-face {
     font-family: 'Western';
     src: url('https://fonts.cdnfonts.com/s/13926/Rye-Regular.woff') format('woff');
@@ -8,177 +13,447 @@ body {
     overflow: hidden;
     font-family: 'Western', serif;
     user-select: none;
+    background-color: transparent; /* <--- OPRAVA: Musí být průhledné */
 }
 
+/* Hlavní kontejner hry */
 #game-container {
     position: absolute;
     width: 100vw;
     height: 100vh;
-    background: url('https://i.imgur.com/3M3w5h9.jpg'); /* Dřevěná textura */
+    background: url('https://i.imgur.com/3M3w5h9.jpg'); /* Dřevěná textura stolu */
     background-size: cover;
     display: flex;
     flex-direction: column;
     justify-content: space-between;
+    overflow: hidden;
 }
 
+/* =========================================
+   HERO SELECTION SCREEN
+   ========================================= */
+.hero-selection-overlay {
+    position: absolute;
+    top: 0; left: 0; width: 100vw; height: 100vh;
+    background: rgba(0, 0, 0, 0.95);
+    z-index: 2000; /* Musí být úplně nejvýš */
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    color: #f4e4bc;
+}
+
+.hero-selection-overlay h1 {
+    font-size: 48px;
+    margin-bottom: 50px;
+    text-shadow: 0 0 10px #d4af37;
+    color: #d4af37;
+    letter-spacing: 5px;
+}
+
+.hero-list {
+    display: flex;
+    gap: 40px;
+    flex-wrap: wrap;
+    justify-content: center;
+}
+
+.hero-option {
+    cursor: pointer;
+    transition: transform 0.3s, box-shadow 0.3s;
+    text-align: center;
+}
+
+.hero-option:hover {
+    transform: scale(1.1);
+}
+
+.hero-option img {
+    border: 4px solid #5d4037;
+    box-shadow: 0 0 20px rgba(0,0,0,0.8);
+    transition: border-color 0.3s;
+}
+
+.hero-option:hover img {
+    border-color: #d4af37; /* Zlatý rámeček při výběru */
+    box-shadow: 0 0 30px #d4af37;
+}
+
+.hero-option div {
+    margin-top: 15px;
+    font-size: 24px;
+    color: #f4e4bc;
+}
+
+/* =========================================
+   HERO PORTRAITS & UI
+   ========================================= */
 .player-area {
-    height: 45vh;
+    height: 40vh; /* Horní a spodní část */
     display: flex;
     flex-direction: column;
     padding: 10px;
     position: relative;
+    pointer-events: none; /* Aby šlo klikat skrz prázdné místa */
 }
 
-.board {
-    flex-grow: 1;
+/* Povolení klikání na interaktivní prvky uvnitř area */
+.player-area > * {
+    pointer-events: auto;
+}
+
+/* Obal pro Hrdinu, HP a Manu */
+.hero-wrapper {
+    position: absolute;
     display: flex;
-    justify-content: center;
-    gap: 10px;
     align-items: center;
-    border-top: 2px dashed rgba(68, 48, 29, 0.3);
-    border-bottom: 2px dashed rgba(68, 48, 29, 0.3);
+    gap: 15px;
+    z-index: 50;
+    background: rgba(0, 0, 0, 0.6); /* Lehké ztmavení pod staty */
+    padding: 10px 20px;
+    border-radius: 15px;
+    border: 1px solid rgba(212, 175, 55, 0.3);
 }
 
-.hand {
-    height: 160px;
-    display: flex;
-    justify-content: center;
-    gap: -20px; /* Překrývání karet */
-    z-index: 10;
+.player .hero-wrapper {
+    bottom: 30px;
+    left: 30px;
 }
 
-/* Design Karty - Cigarette Card Style */
-/* ÚPRAVA PRO PLNÉ KARTY */
-.card {
-    width: 160px;  /* Širší, aby vynikla grafika */
-    height: 230px; /* Poměr stran cca 2.5 : 3.5 */
-    background: transparent;
-    border: none; /* Rámeček už máš v obrázku */
-    border-radius: 10px; /* Jemné zaoblení rohů obrázku */
-    position: relative;
-    box-shadow: 0 5px 15px rgba(0,0,0,0.5);
-    transition: transform 0.2s, box-shadow 0.2s;
-    overflow: hidden; /* Aby obrázek nepřetekl zaoblení */
-}
-
-.card:hover {
-    transform: scale(1.15) translateY(-20px);
-    z-index: 100;
-    box-shadow: 0 10px 25px rgba(0,0,0,0.8);
-}
-
-/* Obrázek nyní vyplní celou kartu */
-.card-img {
-    width: 100%;
-    height: 100%;
-    object-fit: fill; /* Roztáhne obrázek přesně na rozměr karty */
-    display: block;
-}
-
-/* Skryjeme staré rozdělení */
-.card-top, .card-bottom {
-    display: none; 
-}
-
-/* Pozicování statů - musí sedět na kolečka v tvém obrázku */
-.stat-box {
-    position: absolute;
-    width: 26px;
-    height: 26px;
-    line-height: 26px;
-    text-align: center;
-    font-family: 'Western', serif; /* Nebo jiný font */
-    font-weight: bold;
-    font-size: 16px;
-    color: #3e2723;
-    text-shadow: 0px 0px 2px #f4e4bc;
-    z-index: 10;
-    /* Odstraníme bílé pozadí a rámečky, pokud je má obrázek. 
-       Pokud obrázek nemá prázdná kolečka, necháme pozadí. */
-    background: transparent; 
-    border: none;
-}
-
-/* Ladění pozice čísel podle obrázku č. 2 */
-/* Cena - Nahoře vpravo (podle tvého obrázku) */
-.cost { 
-    top: 15px; 
-    right: 15px; 
-    font-size: 18px;
-    color: #4e342e;
-}
-
-/* ID karty (pokud ho chceš zobrazit vlevo nahoře jako na obr.) */
-.card-id-display {
-    position: absolute;
-    top: 18px;
-    left: 18px;
-    font-size: 14px;
-    color: #000;
-    font-weight: bold;
-}
-
-/* Útok - Dole vlevo */
-.atk { 
-    bottom: 12px; 
-    left: 15px; 
-    font-size: 20px;
-    color: #000;
-}
-
-/* Životy - Dole vpravo */
-.hp { 
-    bottom: 12px; 
-    right: 15px; 
-    font-size: 20px;
-    color: #8b0000;
-}
-
-/* Hratelná karta - zelená záře */
-.playable {
-    box-shadow: 0 0 15px #4CAF50;
-    cursor: pointer;
-}
-
-/* Guardian efekt */
-.guardian-glow {
-    box-shadow: 0 0 15px #FFD700; /* Zlatá */
-}
-
-
-#end-turn-btn {
-    position: absolute;
-    right: 20px;
-    top: 50%;
-    transform: translateY(-50%);
-    padding: 15px 30px;
-    background: #5d4037;
-    color: #f4e4bc;
-    border: 2px solid #f4e4bc;
-    font-family: 'Western';
-    cursor: pointer;
-    font-size: 20px;
+.opponent .hero-wrapper {
+    top: 30px;
+    right: 30px;
+    flex-direction: row-reverse; /* Oponent zrcadlově */
 }
 
 .hero-portrait {
-    width: 80px;
-    height: 80px;
+    width: 110px;
+    height: 110px;
     border-radius: 50%;
-    background: #333;
-    border: 3px solid gold;
-    position: absolute;
-    right: 50%;
+    background: #222 url('https://via.placeholder.com/110?text=Hero') no-repeat center/cover;
+    border: 4px solid #d4af37;
+    position: relative;
+    box-shadow: 0 0 15px black;
 }
-.player .hero-portrait { bottom: 10px; transform: translateX(50%); }
-.opponent .hero-portrait { top: 10px; transform: translateX(50%); }
 
 .hp-badge {
     position: absolute;
     bottom: -5px;
     right: -5px;
-    background: red;
+    background: #8b0000; /* Krvavě rudá */
     color: white;
+    width: 36px;
+    height: 36px;
     border-radius: 50%;
-    padding: 5px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
     font-weight: bold;
+    border: 2px solid #f4e4bc;
+    font-size: 18px;
+    box-shadow: 0 0 5px black;
+    z-index: 60;
+}
+
+/* GRIT (MANA) DISPLAY */
+.mana-display {
+    font-size: 28px;
+    font-weight: bold;
+    color: #00bcd4; /* Azurová */
+    text-shadow: 2px 2px 0px #000;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.hero-name {
+    color: #f4e4bc;
+    font-size: 18px;
+    text-transform: uppercase;
+    position: absolute;
+    bottom: -25px;
+    width: 100%;
+    text-align: center;
+    text-shadow: 1px 1px 2px black;
+}
+
+/* Deck (Balíček) */
+.deck {
+    position: absolute;
+    right: 50px;
+    bottom: 50px;
+    width: 100px;
+    height: 140px;
+    background: url('img/card_back.png') no-repeat center/cover; /* Zde předpokládám existenci card_back.png v img složce */
+    background-color: #3e2723; /* Fallback barva */
+    border-radius: 8px;
+    box-shadow: 5px 5px 10px rgba(0,0,0,0.6);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-size: 24px;
+    font-weight: bold;
+    border: 2px solid #5d4037;
+}
+
+/* =========================================
+   BOARD & CENTER UI
+   ========================================= */
+.center-ui {
+    position: absolute;
+    top: 50%;
+    width: 100%;
+    transform: translateY(-50%);
+    display: flex;
+    justify-content: space-between;
+    padding: 0 40px;
+    pointer-events: none; /* Aby neblokovalo karty */
+    z-index: 40;
+}
+
+.center-ui > * {
+    pointer-events: auto;
+}
+
+#end-turn-btn {
+    padding: 15px 40px;
+    background: #5d4037; /* Hnědá kůže */
+    color: #f4e4bc;
+    border: 3px solid #f4e4bc;
+    font-family: 'Western', serif;
+    cursor: pointer;
+    font-size: 24px;
+    box-shadow: 0 0 15px rgba(0,0,0,0.8);
+    transition: all 0.2s;
+    text-transform: uppercase;
+}
+
+#end-turn-btn:hover:not(:disabled) {
+    background: #8d6e63;
+    transform: scale(1.05);
+}
+
+#end-turn-btn:disabled {
+    background: #3e2723;
+    opacity: 0.5;
+    cursor: not-allowed;
+    border-color: #555;
+}
+
+#game-message {
+    position: absolute;
+    left: 50%;
+    transform: translateX(-50%);
+    font-size: 42px;
+    color: #f4e4bc;
+    text-shadow: 0 0 10px black, 0 0 20px #d4af37;
+    font-weight: bold;
+    pointer-events: none;
+}
+
+.board {
+    height: 240px;
+    display: flex;
+    justify-content: center;
+    gap: 15px;
+    align-items: center;
+    /* Lehké ohraničení boardu pro orientaci */
+    background: rgba(0, 0, 0, 0.1); 
+    width: 80%;
+    margin: 0 auto;
+    border-radius: 20px;
+}
+
+/* =========================================
+   CARDS (HAND & BOARD)
+   ========================================= */
+
+/* Ruka hráče - musí být vyšší, protože karty jsou nyní 250px vysoké */
+.hand {
+    position: absolute;
+    bottom: -40px; /* Posuneme níž, aby karty víc koukaly jen vrškem */
+    left: 50%;
+    transform: translateX(-50%);
+    height: 220px; /* Zvětšeno pro vyšší karty */
+    display: flex;
+    justify-content: center;
+    align-items: flex-end;
+    width: 65%;
+    z-index: 100;
+    padding-bottom: 20px;
+    perspective: 1000px; /* Přidá hloubku pro 3D efekt */
+}
+
+/* Ruka oponenta */
+.opponent .hand {
+    top: -50px; /* Posuneme výš */
+    bottom: auto;
+    align-items: flex-start;
+    transform: translateX(-50%);
+}
+
+/* Základní styl karty - UPRAVENO NA POMĚR 490:800 */
+.card {
+    width: 153px;  /* 250 * (490/800) = 153.125 */
+    height: 250px; /* Pevná výška */
+    background: transparent;
+    border-radius: 14px; /* Větší radius pro vyšší rozlišení */
+    position: relative;
+    box-shadow: -5px 0 15px rgba(0,0,0,0.6);
+    transition: transform 0.25s cubic-bezier(0.1, 0.7, 0.1, 1), margin 0.2s;
+    margin-left: -55px; /* Větší překryv, protože karty jsou užší */
+    transform-origin: center bottom;
+    cursor: grab;
+    flex-shrink: 0;
+}
+
+/* Obrázek karty - nyní sedí perfektně */
+.card-img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain; /* Nebo 'fill', ale teď už máme správný poměr, takže se nedeformuje */
+    border-radius: 14px;
+    display: block;
+    /* Odstraníme border, pokud ho máš v obrázku, jinak odkomentuj: */
+    /* border: 1px solid #1a1a1a; */
+    filter: drop-shadow(0px 4px 6px rgba(0,0,0,0.5));
+}
+
+/* Rubová strana (Card Back) - musí mít stejné rozměry */
+.card-back {
+    width: 122px; /* O něco menší v ruce oponenta pro perspektivu, nebo stejné */
+    height: 200px;
+    background: url('img/card_back.png') no-repeat center/cover;
+    background-color: #5d4037; 
+    border-radius: 10px;
+    box-shadow: 2px 2px 10px rgba(0,0,0,0.8);
+    margin: 0 4px;
+    border: 2px solid #2e1e11;
+}
+
+/* HOVER EFEKT - HLADKÝ */
+.hand .card:hover {
+    /* Zvedneme kartu a zvětšíme ji - zachováme poměr */
+    transform: translateY(-110px) scale(1.5) rotate(0deg) !important;
+    z-index: 1000;
+    margin: 0 60px; /* Udělá místo okolo sebe */
+    box-shadow: 0 30px 60px rgba(0,0,0,0.9);
+}
+
+/* První karta v ruce */
+.hand .card:first-child {
+    margin-left: 0;
+}
+
+/* Hratelná karta (Glow) */
+.playable .card-img {
+    box-shadow: 0 0 15px #4CAF50;
+    border: 2px solid #4CAF50;
+}
+
+/* Board kontejner */
+.board {
+    height: 270px; /* Zvětšeno pro vyšší karty */
+    display: flex;
+    justify-content: center;
+    gap: 15px;
+    align-items: center;
+    width: 80%;
+    margin: 0 auto;
+}
+
+/* =========================================
+   STATS (Attack, HP, Cost)
+   ========================================= */
+
+/* Kolečka se staty - UPRAVENO POZICOVÁNÍ PRO TVŮJ OBRÁZEK */
+.stat-box {
+    position: absolute;
+    width: 38px;  /* Větší, aby sedělo na 490px šířku */
+    height: 38px;
+    line-height: 38px;
+    text-align: center;
+    font-family: 'Western', serif;
+    font-weight: bold;
+    font-size: 22px;
+    color: white;
+    z-index: 20;
+    text-shadow: 0px 0px 4px #000;
+    /* Pokud máš kolečka už namalovaná v obrázku, dej background: transparent a border: none */
+    background-color: #222; 
+    border: 2px solid #f4e4bc;
+    border-radius: 50%;
+    box-shadow: 2px 2px 5px rgba(0,0,0,0.8);
+}
+
+/* Pozice laděná pro obrázek 490x800 */
+.cost { 
+    top: 6px;       /* Trochu odshora */
+    left: 6px;      /* Změněno na vlevo (podle screenshotu máš modré číslo vlevo nahoře) */
+    background-color: #2196F3;
+    border-color: #fff;
+    width: 32px;    /* Cost bývá menší */
+    height: 32px;
+    line-height: 30px;
+    font-size: 18px;
+}
+
+.atk { 
+    bottom: 15px; /* Posunuto výš od spodního okraje */
+    left: 12px; 
+    background-color: #FFC107;
+    color: black;
+    text-shadow: none;
+    border-color: #8f6b05;
+}
+
+.hp { 
+    bottom: 15px; 
+    right: 12px; 
+    background-color: #F44336;
+    border-color: #b71c1c;
+}
+
+/* Skrytí statů, pokud se nezměnily (zůstává stejné) */
+.stat-hidden {
+    display: none;
+}
+
+.stat-changed-buff {
+    background-color: #1b5e20;
+    color: #4CAF50 !important;
+    transform: scale(1.1);
+}
+
+.stat-changed-dmg {
+    background-color: #7f0000;
+    color: #ffcccc !important;
+}
+
+/* Skrývání statů, pokud jsou v základu (viz JS logika) */
+.stat-hidden {
+    display: none;
+}
+
+/* =========================================
+   ANIMATIONS
+   ========================================= */
+@keyframes shake {
+    0% { transform: translate(1px, 1px) rotate(0deg); }
+    10% { transform: translate(-1px, -2px) rotate(-1deg); }
+    20% { transform: translate(-3px, 0px) rotate(1deg); }
+    30% { transform: translate(3px, 2px) rotate(0deg); }
+    40% { transform: translate(1px, -1px) rotate(1deg); }
+    50% { transform: translate(-1px, 2px) rotate(-1deg); }
+    60% { transform: translate(-3px, 1px) rotate(0deg); }
+    70% { transform: translate(3px, 1px) rotate(-1deg); }
+    80% { transform: translate(-1px, -1px) rotate(1deg); }
+    90% { transform: translate(1px, 2px) rotate(0deg); }
+    100% { transform: translate(1px, -2px) rotate(-1deg); }
+}
+
+.shake-anim {
+    animation: shake 0.5s;
 }
