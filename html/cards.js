@@ -103,35 +103,79 @@ const CardDB = [
  * Hlavní funkce pro parsování logiky karty.
  * Vrací objekt s funkcemi onPlay, onDeath, onTurnEnd a seznamem klíčových slov.
  */
+/**
+ * Hlavní funkce pro parsování logiky karty.
+ */
 function getCardLogic(cardData) {
     let logic = {
         keywords: [],
         onPlay: null,
         onDeath: null,
-        onTurnEnd: null,
-        onStartTurn: null
+        onTurnEnd: null
     };
 
     const text = cardData.text ? cardData.text.toLowerCase() : "";
 
-    // 1. Klíčová slova (statická)
+    // 1. Klíčová slova
     if (text.includes("guardian")) logic.keywords.push("Guardian");
     if (text.includes("ambush")) logic.keywords.push("Ambush");
     if (text.includes("stealth")) logic.keywords.push("Stealth");
     if (text.includes("lethal")) logic.keywords.push("Lethal");
     if (text.includes("immune")) logic.keywords.push("Immune");
 
-    // 2. Battlecry a Spell efekty (onPlay)
+    // 2. Battlecry / Spell Efekty
     if (text.includes("battlecry") || cardData.type === "Spell" || cardData.type === "Gear") {
         logic.onPlay = function(game, selfCard, target) {
-            console.log(`[ACTION] ${cardData.name} triggered onPlay.`);
+            
+            // --- UFO LOGIC (Destroy ALL Units) ---
+            if (text.includes("destroy all units")) {
+                game.destroyAllUnits();
+                return; // Konec, nic jiného nedělá
+            }
 
-            // Gear Logic (Buffs)
+            // --- EAGLE / DETECTIVE LOGIC (Reveal Hand) ---
+            if (text.includes("reveal") && text.includes("hand")) {
+                game.revealEnemyHand();
+            }
+
+            // --- DAMAGE LOGIC ---
+            const dmgMatch = text.match(/deal (\d+) damage/);
+            if (dmgMatch) {
+                let dmg = parseInt(dmgMatch[1]);
+                if (text.includes("to all characters") || text.includes("to all units")) {
+                    // Deal damage to all
+                    let hitHeroes = text.includes("characters");
+                    game.damageAll(dmg, hitHeroes);
+                } else if (text.includes("to all enemy units")) {
+                    game.damageAllEnemies(dmg);
+                } else if (text.includes("to your hero")) {
+                    game.damageHero("player", dmg);
+                } else if (target) {
+                    game.dealDamage(target, dmg);
+                } else if (text.includes("random enemy")) {
+                    game.damageRandomEnemy(dmg);
+                }
+            }
+
+            // --- HEAL LOGIC ---
+            if (text.includes("restore") || text.includes("heal")) {
+                const healMatch = text.match(/(\d+) health/) || text.match(/heal .* for (\d+)/);
+                if (healMatch) {
+                    let amt = parseInt(healMatch[1]);
+                    if (text.includes("to your hero")) {
+                        game.healHero("player", amt);
+                    } else if (target) {
+                         target.hp = Math.min(target.maxHp, target.hp + amt);
+                    }
+                } else if (text.includes("fully heal")) {
+                    if (target) target.hp = target.maxHp;
+                }
+            }
+
+            // --- GEAR LOGIC ---
             if (cardData.type === "Gear" && target && target.type === "Unit") {
-                // Hledáme "+X Attack" nebo "+X/+X"
                 let atkBuff = 0;
                 let hpBuff = 0;
-                
                 const statsMatch = text.match(/\+(\d+)\/\+(\d+)/);
                 const atkMatch = text.match(/\+(\d+) attack/);
                 const hpMatch = text.match(/\+(\d+) health/);
@@ -144,124 +188,41 @@ function getCardLogic(cardData) {
 
                 target.atk = Math.max(0, target.atk + atkBuff);
                 target.hp += hpBuff;
-                target.maxHp = (target.maxHp || target.hp) + hpBuff;
-                
-                // Gear Keywords
-                if (text.includes("give a unit") && text.includes("guardian")) target.keywords.push("Guardian");
-                if (text.includes("give a unit") && text.includes("lethal")) target.keywords.push("Lethal");
-                if (text.includes("give a unit") && text.includes("ambush")) target.keywords.push("Ambush");
-            }
+                target.maxHp += hpBuff;
 
-            // Damage Logic
-            const dmgMatch = text.match(/deal (\d+) damage/);
-            if (dmgMatch) {
-                let dmg = parseInt(dmgMatch[1]);
-                if (text.includes("to all characters") || text.includes("to all units")) {
-                    game.damageAll(dmg, text.includes("characters")); // true if includes heroes
-                } else if (text.includes("to all enemy units")) {
-                    game.damageAllEnemies(dmg);
-                } else if (text.includes("to your hero")) {
-                    game.damageHero(selfCard.owner, dmg);
-                } else if (target) {
-                    game.dealDamage(target, dmg);
-                } else if (text.includes("random enemy")) {
-                    game.damageRandomEnemy(dmg);
-                }
+                if (text.includes("guardian")) target.keywords.push("Guardian");
+                if (text.includes("lethal")) target.keywords.push("Lethal");
+                if (text.includes("ambush")) target.keywords.push("Ambush");
             }
             
-            // Destroy Logic
-            if (text.includes("destroy all units")) {
-                game.destroyAllUnits();
-            } else if (text.includes("destroy a damaged unit") && target && target.maxHp > target.hp) {
-                game.destroyUnit(target);
-            }
-
-            // Healing Logic
-            if (text.includes("restore") || text.includes("heal")) {
-                const healMatch = text.match(/(\d+) health/) || text.match(/heal .* for (\d+)/);
-                if (healMatch) {
-                    let amt = parseInt(healMatch[1]);
-                    if (text.includes("to your hero")) {
-                        game.healHero(selfCard.owner, amt);
-                    } else if (target) {
-                         target.hp = Math.min(target.maxHp, target.hp + amt);
-                    }
-                } else if (text.includes("fully heal")) {
-                    if (target) target.hp = target.maxHp;
-                }
-            }
-
-            // Draw Logic
-            const drawMatch = text.match(/draw (\d+) card/);
-            if (drawMatch) {
-                game.drawCard(selfCard.owner, parseInt(drawMatch[1]));
-            }
-            
-            // Grit Logic
+            // --- GRIT / DRAW ---
             if (text.includes("gain") && text.includes("grit")) {
-                const gritMatch = text.match(/gain (\d+) grit/); // Zjednodušeno
-                let amt = gritMatch ? parseInt(gritMatch[1]) : 1;
-                game.addGrit(selfCard.owner, amt);
+                let amt = text.includes("3 grit") ? 3 : 1;
+                game.addGrit("player", amt);
             }
-
-            // Summon Logic (Specifics)
-            if (text.includes("summon")) {
-                if (text.includes("two 2/1 wolves")) {
-                    game.summonToken(selfCard.owner, 72); // 72 je ID Grey Wolf
-                    game.summonToken(selfCard.owner, 72);
-                } else if (text.includes("copy of this unit")) {
-                    game.summonToken(selfCard.owner, selfCard.id);
-                } else if (text.includes("outlaw from your graveyard")) {
-                    // TODO: Implement Graveyard logic
-                }
-            }
-
-            // Return to Hand
-            if (text.includes("return") && text.includes("hand")) {
-                if (target) game.returnToHand(target);
-            }
-            
-            // Special Cards
-            if (cardData.id === 3) { console.log("Revealing enemy hand: ", game.enemyHand); } // Detective
-            if (cardData.id === 22 && Math.random() > 0.5) { game.addGrit(selfCard.owner, 1); } // Lucky Coin
-        };
-    }
-
-    // 3. Last Word (Death)
-    if (text.includes("last word")) {
-        logic.onDeath = function(game, selfCard) {
-            console.log(`[DEATH] ${cardData.name} triggered Last Word.`);
             if (text.includes("draw")) {
                 let match = text.match(/draw (\d+)/);
-                if (match) game.drawCard(selfCard.owner, parseInt(match[1]));
-            }
-            if (text.includes("coin")) {
-                game.addCardToHand(selfCard.owner, 71); // 71 je Gold Coin
-            }
-            if (text.includes("shuffle this into your deck")) {
-                // Shuffle logic
+                if(match) game.drawCard("player", parseInt(match[1]));
             }
         };
     }
 
-    // 4. End of Turn Effects
+    // 3. Last Word
+    if (text.includes("last word")) {
+        logic.onDeath = function(game, selfCard) {
+            if (text.includes("draw")) game.drawCard("player", 1);
+            if (text.includes("coin")) game.addCardToHand("player", 71); // Gold Coin ID
+        };
+    }
+
+    // 4. End of Turn
     if (text.includes("end of turn")) {
         logic.onTurnEnd = function(game, selfCard) {
-            if (text.includes("gain +1 grit") || text.includes("gain 2 grit")) {
-                let amt = text.includes("2 grit") ? 2 : 1;
-                // V reálné hře by to byl temporary nebo perma grit podle textu
-                // Zde přidáme dočasný pro další kolo nebo permanentní
-            }
             if (text.includes("heal")) {
-                let amt = 1; 
-                // Zjednodušený heal logic
-                if (selfCard.owner === "player") {
-                     game.board.forEach(u => u.hp = Math.min(u.maxHp, u.hp + amt));
-                }
+                // Heal logic simplified
+                game.board.forEach(u => u.hp = Math.min(u.maxHp, u.hp + 1));
             }
-            if (text.includes("summon a 1/1 bat")) {
-                game.summonToken(selfCard.owner, 73);
-            }
+            if (text.includes("grit")) game.addGrit("player", 1);
         };
     }
 
