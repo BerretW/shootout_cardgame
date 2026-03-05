@@ -48,74 +48,103 @@ body {
 }
 
 /* Design Karty - Cigarette Card Style */
+/* ÚPRAVA PRO PLNÉ KARTY */
 .card {
-    width: 120px;
-    height: 180px;
-    background: #f4e4bc; /* Béžový papír */
-    border: 4px solid #3e2723;
-    border-radius: 8px;
+    width: 160px;  /* Širší, aby vynikla grafika */
+    height: 230px; /* Poměr stran cca 2.5 : 3.5 */
+    background: transparent;
+    border: none; /* Rámeček už máš v obrázku */
+    border-radius: 10px; /* Jemné zaoblení rohů obrázku */
     position: relative;
-    box-shadow: 2px 2px 5px rgba(0,0,0,0.5);
-    transition: transform 0.2s;
-    background-image: url('https://www.transparenttextures.com/patterns/aged-paper.png');
+    box-shadow: 0 5px 15px rgba(0,0,0,0.5);
+    transition: transform 0.2s, box-shadow 0.2s;
+    overflow: hidden; /* Aby obrázek nepřetekl zaoblení */
 }
 
 .card:hover {
-    transform: scale(1.2) translateY(-20px);
+    transform: scale(1.15) translateY(-20px);
     z-index: 100;
+    box-shadow: 0 10px 25px rgba(0,0,0,0.8);
 }
 
-.card-top {
-    height: 50%;
-    width: 100%;
-    overflow: hidden;
-    border-bottom: 2px solid #3e2723;
-}
-
-.card-top img {
+/* Obrázek nyní vyplní celou kartu */
+.card-img {
     width: 100%;
     height: 100%;
-    object-fit: cover;
+    object-fit: fill; /* Roztáhne obrázek přesně na rozměr karty */
+    display: block;
 }
 
-.card-bottom {
-    padding: 5px;
-    text-align: center;
-    font-size: 10px;
-    color: #2c1e14;
+/* Skryjeme staré rozdělení */
+.card-top, .card-bottom {
+    display: none; 
 }
 
-.card-title {
-    font-weight: bold;
-    font-size: 12px;
-    text-transform: uppercase;
-    margin-bottom: 2px;
-}
-
-/* Staty karty */
+/* Pozicování statů - musí sedět na kolečka v tvém obrázku */
 .stat-box {
     position: absolute;
-    width: 24px;
-    height: 24px;
-    background: #fff;
-    border: 2px solid #000;
-    border-radius: 50%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
+    width: 26px;
+    height: 26px;
+    line-height: 26px;
+    text-align: center;
+    font-family: 'Western', serif; /* Nebo jiný font */
     font-weight: bold;
-    font-size: 14px;
-    z-index: 5;
+    font-size: 16px;
+    color: #3e2723;
+    text-shadow: 0px 0px 2px #f4e4bc;
+    z-index: 10;
+    /* Odstraníme bílé pozadí a rámečky, pokud je má obrázek. 
+       Pokud obrázek nemá prázdná kolečka, necháme pozadí. */
+    background: transparent; 
+    border: none;
 }
 
-.cost { top: -10px; left: -10px; background: #2196F3; color: white; }
-.atk { bottom: -10px; left: -10px; background: #FFC107; } /* Shield icon logic via CSS or img */
-.hp { bottom: -10px; right: -10px; background: #F44336; color: white; }
+/* Ladění pozice čísel podle obrázku č. 2 */
+/* Cena - Nahoře vpravo (podle tvého obrázku) */
+.cost { 
+    top: 15px; 
+    right: 15px; 
+    font-size: 18px;
+    color: #4e342e;
+}
 
+/* ID karty (pokud ho chceš zobrazit vlevo nahoře jako na obr.) */
+.card-id-display {
+    position: absolute;
+    top: 18px;
+    left: 18px;
+    font-size: 14px;
+    color: #000;
+    font-weight: bold;
+}
+
+/* Útok - Dole vlevo */
+.atk { 
+    bottom: 12px; 
+    left: 15px; 
+    font-size: 20px;
+    color: #000;
+}
+
+/* Životy - Dole vpravo */
+.hp { 
+    bottom: 12px; 
+    right: 15px; 
+    font-size: 20px;
+    color: #8b0000;
+}
+
+/* Hratelná karta - zelená záře */
 .playable {
     box-shadow: 0 0 15px #4CAF50;
     cursor: pointer;
 }
+
+/* Guardian efekt */
+.guardian-glow {
+    box-shadow: 0 0 15px #FFD700; /* Zlatá */
+}
+
 
 #end-turn-btn {
     position: absolute;
