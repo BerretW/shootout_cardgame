@@ -101,108 +101,247 @@ const CardDB = [
 
 /**
  * Hlavní funkce pro parsování logiky karty.
- * Vrací objekt s funkcemi onPlay, onDeath, onTurnEnd a seznamem klíčových slov.
- */
-/**
- * Hlavní funkce pro parsování logiky karty.
+ * Vrací objekt s funkcemi onPlay, onDeath, onTurnEnd, onTurnStart a seznamem klíčových slov.
  */
 function getCardLogic(cardData) {
     let logic = {
         keywords: [],
         onPlay: null,
         onDeath: null,
-        onTurnEnd: null
+        onTurnEnd: null,
+        onTurnStart: null
     };
 
     const text = cardData.text ? cardData.text.toLowerCase() : "";
+    const id = cardData.id;
 
     // 1. Klíčová slova
     if (text.includes("guardian")) logic.keywords.push("Guardian");
-    if (text.includes("ambush")) logic.keywords.push("Ambush");
-    if (text.includes("stealth")) logic.keywords.push("Stealth");
-    if (text.includes("lethal")) logic.keywords.push("Lethal");
-    if (text.includes("immune")) logic.keywords.push("Immune");
+    if (text.includes("ambush"))   logic.keywords.push("Ambush");
+    if (text.includes("stealth"))  logic.keywords.push("Stealth");
+    if (text.includes("lethal"))   logic.keywords.push("Lethal");
 
-    // 2. Battlecry / Spell Efekty
+    // 2. onPlay: Battlecry / Spell / Gear
     if (text.includes("battlecry") || cardData.type === "Spell" || cardData.type === "Gear") {
         logic.onPlay = function(game, selfCard, target) {
-            
-            // --- UFO LOGIC (Destroy ALL Units) ---
+
+            // === Specifická logika dle ID karty ===
+
+            // IRON SHERIFF: Battlecry: Give other Law units +1/+1
+            if (id === 1) {
+                game.board.filter(u => u.faction === "Law" && u !== selfCard).forEach(u => {
+                    u.atk += 1; u.hp += 1; u.maxHp += 1;
+                });
+                return;
+            }
+
+            // HANDCUFFS: Choose an enemy Unit. It can't attack next turn.
+            if (id === 4) {
+                if (target && target.type === "Unit") target.stunned = true;
+                return;
+            }
+
+            // THE HANGMAN: Battlecry: Destroy a damaged Unit.
+            if (id === 26) {
+                if (target && target.hp < target.maxHp) game.destroyUnit(target);
+                return;
+            }
+
+            // RAILROAD BOSS: Battlecry: Give a Landmark +3 Health.
+            if (id === 28) {
+                if (target && target.type === "Landmark") { target.hp += 3; target.maxHp += 3; }
+                return;
+            }
+
+            // DEPUTY SQUAD: Battlecry: Summon a copy of this unit.
+            if (id === 29) {
+                game.summonUnit(29, "player");
+                return;
+            }
+
+            // CELL DOOR: Return a Unit to its owner's hand.
+            if (id === 30) {
+                if (target && target.type === "Unit") game.bounceUnit(target, target.owner);
+                return;
+            }
+
+            // WOLF PACK: Battlecry: Summon two 2/1 Wolves.
+            if (id === 12) {
+                game.summonUnit(72, "player");
+                game.summonUnit(72, "player");
+                return;
+            }
+
+            // SAFECRACKER: Battlecry: Silence an enemy Unit.
+            if (id === 25) {
+                if (target) game.silenceUnit(target);
+                return;
+            }
+
+            // POKER CHEAT: Battlecry: Discard 1 card, then Draw 1 card.
+            if (id === 36) {
+                game.discardCards("player", 1);
+                game.drawCard("player", 1);
+                return;
+            }
+
+            // GETAWAY HORSE: Return a friendly Unit to hand. Give it +2/+2.
+            if (id === 39) {
+                if (target && target.type === "Unit") {
+                    target.atk += 2; target.hp += 2; target.maxHp += 2;
+                    game.bounceUnit(target, "player");
+                }
+                return;
+            }
+
+            // OPEN GRAVE: Return a dead Unit to your hand.
+            if (id === 19) {
+                game.returnFromGraveyard("player");
+                return;
+            }
+
+            // JAILBREAK: Summon a random Outlaw from your graveyard.
+            if (id === 40) {
+                game.summonFromGraveyard("player", "Outlaw");
+                return;
+            }
+
+            // DEAD MAN'S HAND: Discard your hand. Draw 3 cards.
+            if (id === 41) {
+                game.discardAllCards("player");
+                game.drawCard("player", 3);
+                return;
+            }
+
+            // TRAPPER: Battlecry: Add a 'Bear Trap' to your hand.
+            if (id === 44) {
+                game.addCardToHand("player", 15);
+                return;
+            }
+
+            // SCOUT: Battlecry: Gain an empty Grit crystal.
+            if (id === 45) {
+                game.addMaxGrit("player");
+                return;
+            }
+
+            // STRANGE MAN: Battlecry: Copy a friendly Unit's Attack and Health.
+            if (id === 49) {
+                if (target && target.type === "Unit") {
+                    selfCard.atk = target.atk;
+                    selfCard.hp = target.hp;
+                    selfCard.maxHp = target.maxHp;
+                }
+                return;
+            }
+
+            // SWAMP WITCH: Battlecry: Set a Unit's Attack to 1.
+            if (id === 58) {
+                if (target) game.setUnitAttack(target, 1);
+                return;
+            }
+
+            // BLIND SEER: Battlecry: Discover a card from your deck. (simplified: draw 1)
+            if (id === 53) {
+                game.drawCard("player", 1);
+                return;
+            }
+
+            // LOAN SHARK: Battlecry: Deal 3 damage to your Hero.
+            if (id === 60) {
+                game.damageHero("player", 3);
+                return;
+            }
+
+            // === Generická logika ===
+
+            // UFO: Destroy ALL Units.
             if (text.includes("destroy all units")) {
                 game.destroyAllUnits();
-                return; // Konec, nic jiného nedělá
+                return;
             }
 
-            // --- EAGLE / DETECTIVE LOGIC (Reveal Hand) ---
-            if (text.includes("reveal") && text.includes("hand")) {
+            // Reveal / Look at enemy hand (EAGLE, DETECTIVE)
+            if ((text.includes("reveal") || text.includes("look at")) && text.includes("hand")) {
                 game.revealEnemyHand();
+                return;
             }
 
-            // --- DAMAGE LOGIC ---
+            // 50% náhodné efekty (LUCKY COIN, THE BANK)
+            if (text.includes("50%")) {
+                if (Math.random() >= 0.5) {
+                    if (text.includes("grit")) game.addGrit("player", 1);
+                }
+                return;
+            }
+
+            // Damage
             const dmgMatch = text.match(/deal (\d+) damage/);
             if (dmgMatch) {
                 let dmg = parseInt(dmgMatch[1]);
-                if (text.includes("to all characters") || text.includes("to all units")) {
-                    // Deal damage to all
-                    let hitHeroes = text.includes("characters");
-                    game.damageAll(dmg, hitHeroes);
-                } else if (text.includes("to all enemy units")) {
-                    game.damageAllEnemies(dmg);
+                if (text.includes("to all characters")) {
+                    game.damageAll(dmg, true);
+                } else if (text.includes("to all enemy units") || text.includes("to all units")) {
+                    game.damageAll(dmg, false);
                 } else if (text.includes("to your hero")) {
                     game.damageHero("player", dmg);
-                } else if (target) {
-                    game.dealDamage(target, dmg);
                 } else if (text.includes("random enemy")) {
                     game.damageRandomEnemy(dmg);
+                } else if (target && typeof target !== "string") {
+                    game.dealDamage(target, dmg);
+                } else if (target === "hero") {
+                    game.damageHero("enemy", dmg);
                 }
             }
 
-            // --- HEAL LOGIC ---
-            if (text.includes("restore") || text.includes("heal")) {
+            // Heal / Restore
+            if (text.includes("fully heal")) {
+                if (target && typeof target !== "string") target.hp = target.maxHp;
+            } else if (text.includes("restore") || (text.includes("heal") && cardData.type === "Spell")) {
                 const healMatch = text.match(/(\d+) health/) || text.match(/heal .* for (\d+)/);
                 if (healMatch) {
                     let amt = parseInt(healMatch[1]);
                     if (text.includes("to your hero")) {
                         game.healHero("player", amt);
-                    } else if (target) {
-                         target.hp = Math.min(target.maxHp, target.hp + amt);
+                    } else if (target && typeof target !== "string") {
+                        target.hp = Math.min(target.maxHp, target.hp + amt);
                     }
-                } else if (text.includes("fully heal")) {
-                    if (target) target.hp = target.maxHp;
                 }
             }
 
-            // --- GEAR LOGIC ---
-            if (cardData.type === "Gear" && target && target.type === "Unit") {
-                let atkBuff = 0;
-                let hpBuff = 0;
+            // Gear buffs
+            if (cardData.type === "Gear" && target && typeof target !== "string" && target.type === "Unit") {
+                let atkBuff = 0, hpBuff = 0;
                 const statsMatch = text.match(/\+(\d+)\/\+(\d+)/);
-                const atkMatch = text.match(/\+(\d+) attack/);
-                const hpMatch = text.match(/\+(\d+) health/);
+                const atkMatch  = text.match(/\+(\d+) attack/);
+                const hpMatch   = text.match(/\+(\d+) health/);
                 const negAtkMatch = text.match(/-(\d+) attack/);
 
-                if (statsMatch) { atkBuff += parseInt(statsMatch[1]); hpBuff += parseInt(statsMatch[2]); }
-                if (atkMatch) atkBuff += parseInt(atkMatch[1]);
-                if (hpMatch) hpBuff += parseInt(hpMatch[1]);
-                if (negAtkMatch) atkBuff -= parseInt(negAtkMatch[1]);
+                if (statsMatch)   { atkBuff += parseInt(statsMatch[1]); hpBuff += parseInt(statsMatch[2]); }
+                if (atkMatch)       atkBuff += parseInt(atkMatch[1]);
+                if (hpMatch)        hpBuff  += parseInt(hpMatch[1]);
+                if (negAtkMatch)    atkBuff -= parseInt(negAtkMatch[1]);
 
                 target.atk = Math.max(0, target.atk + atkBuff);
-                target.hp += hpBuff;
+                target.hp    += hpBuff;
                 target.maxHp += hpBuff;
 
-                if (text.includes("guardian")) target.keywords.push("Guardian");
-                if (text.includes("lethal")) target.keywords.push("Lethal");
-                if (text.includes("ambush")) target.keywords.push("Ambush");
+                if (text.includes("guardian") && !target.keywords.includes("Guardian")) target.keywords.push("Guardian");
+                if (text.includes("lethal")   && !target.keywords.includes("Lethal"))   target.keywords.push("Lethal");
+                if (text.includes("ambush")   && !target.keywords.includes("Ambush"))   target.keywords.push("Ambush");
             }
-            
-            // --- GRIT / DRAW ---
+
+            // Grit (obecný)
             if (text.includes("gain") && text.includes("grit")) {
-                let amt = text.includes("3 grit") ? 3 : 1;
+                const gritMatch = text.match(/gain (\d+) grit/);
+                let amt = gritMatch ? parseInt(gritMatch[1]) : 1;
                 game.addGrit("player", amt);
             }
+
+            // Draw (obecný)
             if (text.includes("draw")) {
-                let match = text.match(/draw (\d+)/);
-                if(match) game.drawCard("player", parseInt(match[1]));
+                const drawMatch = text.match(/draw (\d+)/);
+                if (drawMatch) game.drawCard("player", parseInt(drawMatch[1]));
             }
         };
     }
@@ -210,19 +349,80 @@ function getCardLogic(cardData) {
     // 3. Last Word
     if (text.includes("last word")) {
         logic.onDeath = function(game, selfCard) {
-            if (text.includes("draw")) game.drawCard("player", 1);
-            if (text.includes("coin")) game.addCardToHand("player", 71); // Gold Coin ID
+            // TRAIN ROBBER: Add a Coin to your hand.
+            if (id === 34) { game.addCardToHand("player", 71); return; }
+            // SUPPLY WAGON: Draw 2 cards.
+            if (id === 59) { game.drawCard("player", 2); return; }
+            // GHOST TRAIN: Shuffle into deck (simplified: nothing extra)
+            if (id === 18) { return; }
+            // OLD GRAVEYARD: Return dying units to hand (handled in script.js checkDeaths)
+            if (id === 67) { return; }
+            // Obecný
+            const drawMatch = text.match(/draw (\d+)/);
+            if (drawMatch) game.drawCard("player", parseInt(drawMatch[1]));
+            if (text.includes("coin")) game.addCardToHand("player", 71);
         };
     }
 
     // 4. End of Turn
     if (text.includes("end of turn")) {
         logic.onTurnEnd = function(game, selfCard) {
-            if (text.includes("heal")) {
-                // Heal logic simplified
+            // BARTENDER: Heal 1 damage from another random Ally.
+            if (id === 21) {
+                let allies = game.board.filter(u => u !== selfCard && u.hp < u.maxHp);
+                if (allies.length > 0) {
+                    let t = allies[Math.floor(Math.random() * allies.length)];
+                    t.hp = Math.min(t.maxHp, t.hp + 1);
+                }
+                return;
+            }
+            // DEVILS CAVE: Summon a 1/1 Bat.
+            if (id === 57) {
+                game.summonUnit(73, "player");
+                return;
+            }
+            // GHOST TRAIN: Dies at end of turn.
+            if (id === 18) {
+                selfCard.hp = -99;
+                return;
+            }
+            // GRAND SALOON: Heal all friendly characters for 1.
+            if (id === 63) {
+                game.board.forEach(u => u.hp = Math.min(u.maxHp, u.hp + 1));
+                game.healHero("player", 1);
+                return;
+            }
+            // THE BANK: 50% chance to gain 1 Grit.
+            if (id === 62) {
+                if (Math.random() >= 0.5) game.addGrit("player", 1);
+                return;
+            }
+            // Obecný heal
+            if (text.includes("heal") && id !== 21 && id !== 63) {
                 game.board.forEach(u => u.hp = Math.min(u.maxHp, u.hp + 1));
             }
-            if (text.includes("grit")) game.addGrit("player", 1);
+            // Obecný grit (s extrakcí množství)
+            if (text.includes("grit")) {
+                const gritMatch = text.match(/gain (\d+) grit/);
+                let amt = gritMatch ? parseInt(gritMatch[1]) : 1;
+                game.addGrit("player", amt);
+            }
+        };
+    }
+
+    // 5. Start of Turn (Landmark efekty)
+    if (text.includes("start of your turn") || text.includes("at the start of your turn")) {
+        logic.onTurnStart = function(game, selfCard) {
+            // VOODOO ALTAR: Deal 1 damage to a random enemy.
+            if (id === 50) {
+                game.damageRandomEnemy(1);
+                return;
+            }
+            // TRAIN STATION: Draw an extra card.
+            if (id === 66) {
+                game.drawCard("player", 1);
+                return;
+            }
         };
     }
 

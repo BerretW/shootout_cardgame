@@ -3,10 +3,34 @@
 <head>
     <meta charset="UTF-8">
     <link rel="stylesheet" href="style.css">
+    <!-- Načtení Western fontu -->
+    <link href="https://fonts.cdnfonts.com/css/rye" rel="stylesheet">
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     <title>Shootout</title>
 </head>
 <body>
+
+    <!-- Notifikace (náhrada za alert) -->
+    <div id="game-notification" style="display:none;"></div>
+
+    <!-- Tooltip nápověda ke kartám -->
+    <div id="card-tooltip" style="display:none;">
+        <div id="tt-name"></div>
+        <div id="tt-meta"></div>
+        <div id="tt-cost"></div>
+        <div id="tt-stats"></div>
+        <div id="tt-text"></div>
+    </div>
+
+    <!-- Výsledek hry (Victory/Defeat) -->
+    <div id="result-overlay" style="display:none;">
+        <div class="result-content">
+            <h1 id="result-title">VICTORY</h1>
+            <p id="result-desc">You are the fastest gun in the west.</p>
+            <button class="menu-btn" onclick="exitGame()">LEAVE SALOON</button>
+        </div>
+    </div>
+
     <!-- Výběr Hrdiny Overlay -->
     <div id="hero-selection" class="hero-selection-overlay" style="display:none;">
         <h1>CHOOSE YOUR LEGEND</h1>
@@ -27,31 +51,35 @@
                 <div class="hero-name" id="opp-name">Outlaw</div>
             </div>
             
+            <!-- Ruka oponenta -->
             <div class="hand" id="opp-hand"></div>
+            <!-- Stůl oponenta -->
             <div class="board" id="opp-board"></div>
         </div>
 
         <!-- Středová čára / UI prvky -->
         <div class="center-ui">
-            <button id="end-turn-btn" onclick="endTurn()">END TURN</button>
             <div id="game-message">YOUR TURN</div>
+            <button id="end-turn-btn" onclick="endTurn()">END TURN</button>
         </div>
 
         <!-- Hráč (Dole) -->
         <div class="player-area player">
+            <!-- Stůl hráče -->
             <div class="board" id="player-board"></div>
+            <!-- Ruka hráče -->
             <div class="hand" id="player-hand"></div>
             
             <div class="hero-wrapper">
                 <div class="hero-portrait" id="player-hero">
                     <div class="hp-badge">20</div>
                 </div>
-                <!-- GRIT je nyní velký a vedle hrdiny -->
                 <div class="mana-display" id="player-mana">💎 1/1</div>
                 <div class="hero-name" id="player-name">Player</div>
             </div>
 
             <div class="deck" id="player-deck">
+                <div class="deck-visual"></div>
                 <span id="deck-count">30</span>
             </div>
         </div>
