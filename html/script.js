@@ -21,9 +21,15 @@ let enemyHp = 30;
 let enemyMaxHp = 30;
 
 // Stavy hry
-let myTurn = false; 
-let isSinglePlayer = false; 
+let myTurn = false;
+let isSinglePlayer = false;
 let gameEnded = false;
+
+// Hero selection (MP synchronizace)
+let myHeroChoice = null;
+let opponentHeroId = null;
+let pendingIsFirst = false;
+let pendingOppName = "";
 
 // Hřbitovy
 let playerGraveyard = [];
@@ -32,6 +38,9 @@ let enemyGraveyard = [];
 // Interakce
 let selectedCardIndex = -1;
 let selectedAttacker = null; // Jednotka vybraná k útoku
+
+// Historie tahů
+let moveHistory = [];
 
 // ==========================================
 // 1. INICIALIZACE A KOMUNIKACE (NUI)
@@ -81,11 +90,22 @@ $(document).ready(function() {
         const t = $(e.target);
         if (!t.closest('.card').length &&
             !t.closest('#end-turn-btn').length &&
-            !t.closest('.hero-portrait').length) {
+            !t.closest('.hero-portrait').length &&
+            !t.closest('.hero-wrapper').length) { // <-- PŘIDAT TENTO ŘÁDEK {
             cancelSelection();
         }
     });
 });
+
+function addToHistory(text) {
+    moveHistory.unshift(text);
+    if (moveHistory.length > 20) moveHistory.pop();
+    const list = $("#history-list");
+    list.empty();
+    moveHistory.forEach(entry => {
+        list.append(`<div class="history-entry">${entry}</div>`);
+    });
+}
 
 function showNotification(msg, duration) {
     duration = duration || 3000;
@@ -124,12 +144,16 @@ function showHeroSelection(isFirst, oppName) {
     $("#hero-selection").css("display", "flex");
     $("#result-overlay").hide();
     $("#hero-list").empty();
-    
+
     gameEnded = false;
+    myHeroChoice = null;
+    opponentHeroId = null;
+    pendingIsFirst = isFirst;
+    pendingOppName = oppName;
 
     // Vyfiltrujeme jen Hero karty
     let heroes = CardDB.filter(c => c.type === "Hero");
-    
+
     heroes.forEach(hero => {
         let el = $(`
             <div class="hero-option">
@@ -138,14 +162,35 @@ function showHeroSelection(isFirst, oppName) {
             </div>
         `);
         el.click(() => {
-            $("#hero-selection").hide();
-            initGame(isFirst, oppName, hero);
+            if (isSinglePlayer) {
+                $("#hero-selection").hide();
+                initGame(isFirst, oppName, hero, null);
+            } else {
+                myHeroChoice = hero;
+                emitAction("heroSelected", { heroId: hero.id });
+                // Zobrazit čekání
+                $("#hero-list").empty().html(`
+                    <div style="color:gold; font-family:'Western'; font-size:22px; text-align:center; padding:60px 20px;">
+                        Waiting for opponent to choose their hero...
+                    </div>
+                `);
+                // Pokud protivník už vybral, spustíme hru
+                if (opponentHeroId !== null) {
+                    startGameWithHeroes();
+                }
+            }
         });
         $("#hero-list").append(el);
     });
 }
 
-function initGame(isFirst, oppName, chosenHero) {
+function startGameWithHeroes() {
+    let enemyHeroTemplate = CardDB.find(c => c.id === opponentHeroId && c.type === "Hero") || null;
+    $("#hero-selection").hide();
+    initGame(pendingIsFirst, pendingOppName, myHeroChoice, enemyHeroTemplate);
+}
+
+function initGame(isFirst, oppName, chosenHero, enemyHeroOverride) {
     // Reset proměnných
     currentMana = 1; maxMana = 1;
     playerHand = []; playerBoard = [];
@@ -153,16 +198,16 @@ function initGame(isFirst, oppName, chosenHero) {
     playerGraveyard = []; enemyGraveyard = [];
     selectedCardIndex = -1; selectedAttacker = null;
     gameEnded = false;
-    
+    moveHistory = []; $("#history-list").empty();
+
     // Nastavení Hráče
-    playerHp = chosenHero.hp; 
+    playerHp = chosenHero.hp;
     playerMaxHp = chosenHero.hp;
     $("#player-name").text(chosenHero.name);
     $("#player-hero").css("background-image", `url('${getImgName(chosenHero)}')`);
 
-    // Nastavení Oponenta (Bot nebo Hráč)
-    // Pokud je SP, vybereme náhodného oponenta
-    let enemyHero = CardDB.filter(c => c.type === "Hero" && c.id !== chosenHero.id)[0] || CardDB[80];
+    // Nastavení Oponenta
+    let enemyHero = enemyHeroOverride || CardDB.filter(c => c.type === "Hero" && c.id !== chosenHero.id)[0] || CardDB[80];
     
     enemyHp = enemyHero.hp; 
     enemyMaxHp = enemyHero.hp;
@@ -199,14 +244,24 @@ function startPlayerTurn() {
     // Probuzení jednotek + reset stunu + Start of Turn efekty
     playerBoard.forEach(u => {
         if (u.type === "Unit") {
-            u.canAttack = true;
-            u.attacksRemaining = u.maxAttacks || 1;
+            if (u.stunned) {
+                // Stun vyprší – jednotka tento tah nemůže útočit
+                u.stunned = false;
+                u.canAttack = false;
+            } else {
+                u.canAttack = true;
+                u.attacksRemaining = u.maxAttacks || 1;
+            }
         }
-        // Stun vyprší (byl nastaven během nepřátelského tahu)
-        // (enemy stun se resetuje v aiAttackPhase)
 
         // Start of Turn efekty Landmarků (VOODOO ALTAR, TRAIN STATION)
         if (u.logic && u.logic.onTurnStart) u.logic.onTurnStart(GameInterface, u);
+    });
+
+    // Sync pasivních efektů (Voodoo Altar, apod.) protivníkovi
+    emitAction("turnStartSync", {
+        enemyHp: enemyHp,
+        boardHps: enemyBoard.map(u => u.hp)
     });
 
     // Reset stunu na nepřátelských jednotkách (HANDCUFFS vliv vypršel)
@@ -391,6 +446,8 @@ function getCardCost(card) {
 function playCard(index, target) {
     let card = playerHand[index];
 
+    addToHistory(`<span class="hist-you">Ty:</span> zahraješ <b>${card.name}</b>`);
+
     // Odečíst manu (s případnou slevou)
     currentMana -= getCardCost(card);
     
@@ -472,6 +529,9 @@ function playCard(index, target) {
 function performAttack(myUnitIndex, targetUnitIndex, isTargetHero) {
     let attacker = playerBoard[myUnitIndex];
 
+    let targetName = isTargetHero ? "Hrdinu" : (enemyBoard[targetUnitIndex]?.name || "?");
+    addToHistory(`<span class="hist-you">Ty:</span> <b>${attacker.name}</b> útočí na <b>${targetName}</b>`);
+
     // Gunslinger: sledujeme zbývající útoky
     attacker.attacksRemaining = (attacker.attacksRemaining || 1) - 1;
     if (attacker.attacksRemaining <= 0) attacker.canAttack = false;
@@ -480,34 +540,51 @@ function performAttack(myUnitIndex, targetUnitIndex, isTargetHero) {
 
     if (isTargetHero) {
         enemyHp -= dmgDealt;
-        // Vampire: lifesteal při útoku na hrdinu
         if (attacker.id === 17) playerHp = Math.min(playerMaxHp, playerHp + dmgDealt);
     } else {
         let defender = enemyBoard[targetUnitIndex];
-
         defender.hp -= dmgDealt;
-
-        // Sniper: immune while attacking (nedostane zpět poškození)
         let sniperImmune = attacker.text && attacker.text.toLowerCase().includes("immune while attacking");
         if (!sniperImmune) attacker.hp -= defender.atk;
-
-        // Lethal
         if (attacker.keywords.includes("Lethal")) defender.hp = -99;
         if (defender.keywords.includes("Lethal")) attacker.hp = -99;
-
-        // Vampire: lifesteal při útoku do jednotky
         if (attacker.id === 17) playerHp = Math.min(playerMaxHp, playerHp + dmgDealt);
     }
 
-    // Sync
     emitAction("attack", {
         attackerIndex: myUnitIndex,
         targetIndex: isTargetHero ? -1 : targetUnitIndex,
         targetType: isTargetHero ? "hero" : "enemyUnit"
     });
 
-    checkDeaths();
-    updateUI();
+    // Animace útoku – damage se aplikoval výše, UI se obnoví po animaci
+    let attackerEl = $("#player-board .card").eq(myUnitIndex);
+    let targetEl = isTargetHero ? $("#opp-hero") : $("#opp-board .card").eq(targetUnitIndex);
+
+    if (!attackerEl.length) { checkDeaths(); updateUI(); return; }
+
+    // Vypočítat směr pohybu (útočník -> cíl)
+    let aRect = attackerEl[0].getBoundingClientRect();
+    let tRect = targetEl.length ? targetEl[0].getBoundingClientRect() : null;
+    let dx = tRect ? (tRect.left + tRect.width / 2) - (aRect.left + aRect.width / 2) : 0;
+    let dy = tRect ? (tRect.top + tRect.height / 2) - (aRect.top + aRect.height / 2) : -80;
+    let dist = Math.sqrt(dx * dx + dy * dy);
+    let nx = (dx / dist) * 60;
+    let ny = (dy / dist) * 60;
+
+    attackerEl.css({ transition: 'transform 0.15s ease-in', transform: `translate(${nx}px, ${ny}px)` });
+
+    setTimeout(() => {
+        // Flash na cíli
+        targetEl.addClass('card-hit');
+        attackerEl.css({ transition: 'transform 0.12s ease-out', transform: 'translate(0,0)' });
+        setTimeout(() => {
+            targetEl.removeClass('card-hit');
+            attackerEl.css('transition', '');
+            checkDeaths();
+            updateUI();
+        }, 180);
+    }, 160);
 }
 
 // ==========================================
@@ -736,6 +813,8 @@ function updateUI() {
     $("#player-hero .hp-badge").text(playerHp);
     $("#opp-hero .hp-badge").text(enemyHp);
     $("#deck-count").text(Math.max(0, 26 - (maxMana * 1))); // Falešný counter decku
+    $("#player-grave-count").text(playerGraveyard.length);
+    $("#opp-grave-count").text(enemyGraveyard.length);
 
     // --- RENDER PLAYER HAND ---
     $("#player-hand").empty();
@@ -764,13 +843,22 @@ function updateUI() {
         $("#opp-hand").append(`<div class="card-back"></div>`);
     }
 
-    // Zvýraznění enemy hrdiny jako cíle útoku
+    // Zvýraznění enemy hrdiny jako cíle útoku nebo spellu
     const heroAttackable = selectedAttacker && myTurn &&
         !enemyBoard.some(u => u.keywords.includes("Guardian"));
-    $("#opp-hero").toggleClass("hero-targetable", !!heroAttackable);
+    let heroSpellTargetable = false;
+    if (selectedCardIndex > -1 && myTurn) {
+        let sc = playerHand[selectedCardIndex];
+        let st = sc.text.toLowerCase();
+        heroSpellTargetable = st.includes("hero") ||
+            ((st.includes("deal") || st.includes("damage")) && (st.includes("enemy") || st.includes("any")));
+    }
+    $("#opp-hero").toggleClass("hero-targetable", !!(heroAttackable || heroSpellTargetable));
 
     // Bind event na enemy hrdinu (pro útok/target)
-    $("#opp-hero").off("click").on("click", handleEnemyHeroClick);
+        $("#opp-hero").off("click mousedown")
+        .on("mousedown", function(e) { e.stopPropagation(); }) 
+        .on("click", handleEnemyHeroClick);
 }
 
 function renderBoard(container, boardData, isEnemy) {
@@ -800,6 +888,22 @@ function renderBoard(container, boardData, isEnemy) {
             if (isValidTarget) el.addClass("card-targetable");
         }
 
+        // Zvýraznění cílů spellu / gearu
+        if (selectedCardIndex > -1 && myTurn) {
+            let sc = playerHand[selectedCardIndex];
+            let st = sc ? sc.text.toLowerCase() : "";
+            let targetsEnemies = isEnemy &&
+                !card.keywords.includes("Stealth") && card.id !== 43 &&
+                (st.includes("deal") || st.includes("destroy") ||
+                 st.includes("choose an enemy") || st.includes("silence") ||
+                 st.includes("return a unit") || st.includes("enemy unit"));
+            let targetsFriendly = !isEnemy &&
+                (sc && sc.type === "Gear" ||
+                 st.includes("give") || st.includes("heal") ||
+                 st.includes("return a friendly") || st.includes("copy"));
+            if (targetsEnemies || targetsFriendly) el.addClass("card-targetable");
+        }
+
         el.click(() => handleUnitClick(card, isEnemy));
         el.on("mouseenter", () => showCardTooltip(card));
         el.on("mouseleave", hideCardTooltip);
@@ -825,11 +929,54 @@ function showCardTooltip(card) {
     $("#tt-cost").html(`💎 ${costStr} Grit`);
     $("#tt-stats").html(statsHtml);
     $("#tt-text").text(card.text || "");
+
+    // Gear tooltipy
+    let gearHtml = "";
+    if (card.gear && card.gear.length > 0) {
+        card.gear.forEach(g => {
+            gearHtml += `
+                <div class="tt-gear-item">
+                    <div class="tt-gear-name">🔧 ${g.name}</div>
+                    <div class="tt-gear-text">${g.text || ""}</div>
+                </div>`;
+        });
+    }
+    $("#tt-gear").html(gearHtml);
+
     $("#card-tooltip").show();
 }
 
 function hideCardTooltip() {
     $("#card-tooltip").hide();
+}
+
+function showGraveyard(owner) {
+    let grave = owner === "player" ? playerGraveyard : enemyGraveyard;
+    let title = owner === "player" ? "Tvůj hřbitov" : "Hřbitov protivníka";
+    $("#graveyard-title").text(`${title} (${grave.length})`);
+
+    let container = $("#graveyard-cards").empty();
+    if (grave.length === 0) {
+        container.html('<div style="color:#888;text-align:center;padding:20px;font-family:sans-serif;">Hřbitov je prázdný.</div>');
+    } else {
+        [...grave].reverse().forEach(card => {
+            let statsHtml = (card.type !== "Spell" && card.type !== "Gear")
+                ? `<div class="grave-card-stats">⚔️${card.atk} ❤️${card.maxHp}</div>` : "";
+            let el = $(`
+                <div class="grave-card-item">
+                    <img src="${getImgName(card)}" class="grave-card-img" onerror="this.src='img/card_back.png'">
+                    <div class="grave-card-info">
+                        <div class="grave-card-name">${card.name}</div>
+                        <div class="grave-card-type">${card.faction} · ${card.type}</div>
+                        ${statsHtml}
+                        <div class="grave-card-text">${card.text || ""}</div>
+                    </div>
+                </div>
+            `);
+            container.append(el);
+        });
+    }
+    $("#graveyard-modal").show();
 }
 
 /**
@@ -952,12 +1099,102 @@ function emitAction(type, payload) {
     }
 }
 
-function handleRemoteAction(data) {
-    // Jednoduchá implementace pro MP demo
-    if (data.type === "endTurn") {
+function handleRemoteAction(action) {
+    if (!action) return;
+
+    if (action.type === "heroSelected") {
+        opponentHeroId = action.payload.heroId;
+        // Pokud jsme už vybrali svého hrdinu, spustíme hru
+        if (myHeroChoice !== null) {
+            startGameWithHeroes();
+        }
+        return;
+    }
+    else if (action.type === "turnStartSync") {
+        // Protivníkův "enemyHp" = náš playerHp (jeho pasivní efekty nás poškodily)
+        playerHp = action.payload.enemyHp;
+        action.payload.boardHps.forEach((hp, i) => {
+            if (playerBoard[i]) playerBoard[i].hp = hp;
+        });
+        checkDeaths();
+        updateUI();
+        return;
+    }
+    else if (action.type === "endTurn") {
         startPlayerTurn();
-    } 
-    // V plné verzi by zde byla replikace PlayCard, Attack atd.
+    }
+    else if (action.type === "playCard") {
+        let p = action.payload;
+        let card = createCardInstance(p.cardId, "enemy");
+        if (!card) return;
+        addToHistory(`<span class="hist-opp">Opp:</span> zahraje <b>${card.name}</b>`);
+
+        // Přeložení cíle z pohledu protivníka:
+        // protivníkův "playerUnit" = jeho vlastní jednotka = náš enemyBoard
+        // protivníkův "enemyUnit" = naše jednotka = náš playerBoard
+        let target = null;
+        if (p.targetType === "enemyUnit")  target = playerBoard[p.targetIndex];
+        else if (p.targetType === "playerUnit") target = enemyBoard[p.targetIndex];
+        else if (p.targetType === "hero")   target = "hero";
+
+        if (card.type === "Unit" || card.type === "Landmark") {
+            card.canAttack = card.keywords.includes("Ambush");
+            enemyBoard.push(card);
+            if (card.id === 33) { // COURTHOUSE
+                enemyBoard.forEach(u => { if (u !== card && u.type === "Unit") { u.maxHp += 1; u.hp += 1; } });
+            }
+            if (card.type === "Unit" && enemyBoard.some(b => b.id === 33 && b !== card)) {
+                card.maxHp += 1; card.hp += 1;
+            }
+            if (card.logic && card.logic.onPlay) {
+                card.logic.onPlay(EnemyGameInterface, card, target);
+            }
+        } else if (card.type === "Spell") {
+            if (card.logic && card.logic.onPlay) {
+                card.logic.onPlay(EnemyGameInterface, card, target);
+            }
+            enemyGraveyard.push(card);
+        } else if (card.type === "Gear") {
+            if (target && target.type === "Unit") {
+                if (!target.gear) target.gear = [];
+                target.gear.push(card);
+                if (card.logic && card.logic.onPlay) {
+                    card.logic.onPlay(EnemyGameInterface, card, target);
+                }
+            }
+        }
+        checkDeaths();
+        updateUI();
+    }
+    else if (action.type === "attack") {
+        let p = action.payload;
+        let attacker = enemyBoard[p.attackerIndex];
+        if (!attacker) return;
+
+        let oppTargetName = p.targetType === "hero" ? "Tvého Hrdinu" : (playerBoard[p.targetIndex]?.name || "?");
+        addToHistory(`<span class="hist-opp">Opp:</span> <b>${attacker.name}</b> útočí na <b>${oppTargetName}</b>`);
+
+        attacker.attacksRemaining = (attacker.attacksRemaining || 1) - 1;
+        if (attacker.attacksRemaining <= 0) attacker.canAttack = false;
+
+        if (p.targetType === "hero") {
+            // Protivník útočí na naše HP
+            playerHp -= attacker.atk;
+            if (attacker.id === 17) enemyHp = Math.min(enemyMaxHp, enemyHp + attacker.atk);
+        } else {
+            // Protivník útočí na naši jednotku
+            let defender = playerBoard[p.targetIndex];
+            if (!defender) return;
+            defender.hp -= attacker.atk;
+            let sniperImmune = attacker.text && attacker.text.toLowerCase().includes("immune while attacking");
+            if (!sniperImmune) attacker.hp -= defender.atk;
+            if (attacker.keywords.includes("Lethal")) defender.hp = -99;
+            if (defender.keywords.includes("Lethal")) attacker.hp = -99;
+            if (attacker.id === 17) enemyHp = Math.min(enemyMaxHp, enemyHp + attacker.atk);
+        }
+        checkDeaths();
+        updateUI();
+    }
 }
 
 
@@ -1108,4 +1345,90 @@ const GameInterface = {
     // Getters pro karty, které potřebují scanovat stůl
     get board() { return playerBoard; },
     get enemyBoard() { return enemyBoard; }
+};
+
+// Invertovaný GameInterface pro akce protivníka v MP
+// "player" = protivník (enemyBoard/enemyHp), "enemy" = my (playerBoard/playerHp)
+const EnemyGameInterface = {
+    dealDamage: (target, amt) => {
+        if (target && typeof target.hp !== 'undefined') target.hp -= amt;
+    },
+    damageHero: (owner, amt) => {
+        if (owner === "player") enemyHp -= amt; else playerHp -= amt;
+    },
+    damageAll: (amt, hitHeroes) => {
+        playerBoard.forEach(u => u.hp -= amt);
+        enemyBoard.forEach(u => u.hp -= amt);
+        if (hitHeroes) { playerHp -= amt; enemyHp -= amt; }
+    },
+    damageAllEnemies: (amt) => {
+        playerBoard.forEach(u => u.hp -= amt);
+    },
+    damageRandomEnemy: (amt) => {
+        if (playerBoard.length > 0) {
+            playerBoard[Math.floor(Math.random() * playerBoard.length)].hp -= amt;
+        } else {
+            playerHp -= amt;
+        }
+    },
+    healHero: (owner, amt) => {
+        if (owner === "player") enemyHp = Math.min(enemyMaxHp, enemyHp + amt);
+        else playerHp = Math.min(playerMaxHp, playerHp + amt);
+    },
+    addGrit: () => {},
+    addMaxGrit: () => {},
+    drawCard: () => {},
+    addCardToHand: () => {},
+    discardCards: () => {},
+    discardAllCards: () => {},
+    returnFromGraveyard: () => {},
+    summonFromGraveyard: (owner, faction) => {
+        if (owner === "player") {
+            let pool = enemyGraveyard.filter(c => c.type === "Unit" && (!faction || c.faction === faction));
+            if (pool.length > 0) {
+                let card = pool[Math.floor(Math.random() * pool.length)];
+                enemyGraveyard.splice(enemyGraveyard.indexOf(card), 1);
+                card.hp = card.maxHp;
+                card.canAttack = card.keywords.includes("Ambush");
+                if (enemyBoard.length < 7) enemyBoard.push(card);
+            }
+        }
+    },
+    bounceUnit: (unit) => {
+        let idx = enemyBoard.indexOf(unit);
+        if (idx > -1) {
+            // Jejich vlastní jednotka se vrací k nim – lokálně ji jen odebereme
+            enemyBoard.splice(idx, 1);
+        } else {
+            idx = playerBoard.indexOf(unit);
+            if (idx > -1) {
+                // Naše jednotka vrácena do naší ruky
+                playerBoard.splice(idx, 1);
+                unit.canAttack = false; unit.stunned = false;
+                if (playerHand.length < 10) playerHand.push(unit);
+            }
+        }
+    },
+    summonUnit: (id, owner) => {
+        let card = createCardInstance(id, owner === "player" ? "enemy" : "player");
+        if (!card) return;
+        card.canAttack = card.keywords.includes("Ambush");
+        if (owner === "player" && enemyBoard.length < 7) enemyBoard.push(card);
+        else if (owner === "enemy" && playerBoard.length < 7) playerBoard.push(card);
+    },
+    silenceUnit: (unit) => {
+        unit.keywords = [];
+        unit.text = "Silenced";
+        unit.logic = { keywords: [], onPlay: null, onDeath: null, onTurnEnd: null, onTurnStart: null };
+    },
+    setUnitAttack: (unit, val) => { unit.atk = Math.max(0, val); unit.baseAtk = unit.atk; },
+    destroyUnit: (unit) => { unit.hp = -99; },
+    destroyAllUnits: () => {
+        playerBoard.forEach(u => u.hp = -99);
+        enemyBoard.forEach(u => u.hp = -99);
+        checkDeaths(); updateUI();
+    },
+    revealEnemyHand: () => { showNotification("Enemy hand revealed!", 3000); },
+    get board() { return enemyBoard; },
+    get enemyBoard() { return playerBoard; }
 };

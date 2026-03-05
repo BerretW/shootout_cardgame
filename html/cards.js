@@ -29,7 +29,7 @@ const CardDB = [
     {id: 7, faction: "Outlaw", name: "BANDIT", type: "Unit", cost: 3, atk: 4, hp: 2, text: "Ambush"},
     {id: 8, faction: "Outlaw", name: "DUELIST", type: "Unit", cost: 4, atk: 4, hp: 3, text: "Battlecry: Deal 2 damage."},
     {id: 9, faction: "Outlaw", name: "MOLOTOV", type: "Spell", cost: 3, atk: 0, hp: 0, text: "Deal 4 damage to a Unit."},
-    {id: 10, faction: "Outlaw", name: "THE HEIST", type: "Spell", cost: 3, atk: 0, hp: 0, text: "Gain 3 Grit this turn only."},
+    {id: 10, faction: "Outlaw", name: "THE HEIST", type: "Spell", cost: 0, atk: 0, hp: 0, text: "Gain 3 Grit this turn only."},
     {id: 25, faction: "Outlaw", name: "SAFECRACKER", type: "Unit", cost: 2, atk: 2, hp: 2, text: "Battlecry: Silence an enemy Unit."},
     {id: 34, faction: "Outlaw", name: "TRAIN ROBBER", type: "Unit", cost: 3, atk: 4, hp: 3, text: "Last Word: Add a 'Coin' to your hand."},
     {id: 35, faction: "Outlaw", name: "GANG LEADER", type: "Unit", cost: 6, atk: 6, hp: 5, text: "Your other Outlaws have Ambush."},

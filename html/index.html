@@ -20,6 +20,7 @@
         <div id="tt-cost"></div>
         <div id="tt-stats"></div>
         <div id="tt-text"></div>
+        <div id="tt-gear"></div>
     </div>
 
     <!-- Výsledek hry (Victory/Defeat) -->
@@ -49,6 +50,7 @@
                 </div>
                 <div class="mana-display" id="opp-mana">💎 1/1</div>
                 <div class="hero-name" id="opp-name">Outlaw</div>
+                <div class="graveyard-btn" id="opp-grave-btn" onclick="showGraveyard('enemy')">🪦 <span id="opp-grave-count">0</span></div>
             </div>
             
             <!-- Ruka oponenta -->
@@ -76,6 +78,7 @@
                 </div>
                 <div class="mana-display" id="player-mana">💎 1/1</div>
                 <div class="hero-name" id="player-name">Player</div>
+                <div class="graveyard-btn" id="player-grave-btn" onclick="showGraveyard('player')">🪦 <span id="player-grave-count">0</span></div>
             </div>
 
             <div class="deck" id="player-deck">
@@ -85,6 +88,23 @@
         </div>
     </div>
     
+    <!-- Modál hřbitova -->
+    <div id="graveyard-modal" style="display:none;" onclick="$('#graveyard-modal').hide()">
+        <div class="graveyard-content" onclick="event.stopPropagation()">
+            <div class="graveyard-header">
+                <span id="graveyard-title">Hřbitov</span>
+                <button class="grave-close-btn" onclick="$('#graveyard-modal').hide()">✕</button>
+            </div>
+            <div id="graveyard-cards"></div>
+        </div>
+    </div>
+
+    <!-- Historie tahů -->
+    <div id="history-panel">
+        <div id="history-title">HISTORIE</div>
+        <div id="history-list"></div>
+    </div>
+
     <script src="cards.js"></script>
     <script src="script.js"></script>
 </body>
