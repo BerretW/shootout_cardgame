@@ -1,0 +1,155 @@
+@font-face {
+    font-family: 'Western';
+    src: url('https://fonts.cdnfonts.com/s/13926/Rye-Regular.woff') format('woff');
+}
+
+body {
+    margin: 0;
+    overflow: hidden;
+    font-family: 'Western', serif;
+    user-select: none;
+}
+
+#game-container {
+    position: absolute;
+    width: 100vw;
+    height: 100vh;
+    background: url('https://i.imgur.com/3M3w5h9.jpg'); /* Dřevěná textura */
+    background-size: cover;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+}
+
+.player-area {
+    height: 45vh;
+    display: flex;
+    flex-direction: column;
+    padding: 10px;
+    position: relative;
+}
+
+.board {
+    flex-grow: 1;
+    display: flex;
+    justify-content: center;
+    gap: 10px;
+    align-items: center;
+    border-top: 2px dashed rgba(68, 48, 29, 0.3);
+    border-bottom: 2px dashed rgba(68, 48, 29, 0.3);
+}
+
+.hand {
+    height: 160px;
+    display: flex;
+    justify-content: center;
+    gap: -20px; /* Překrývání karet */
+    z-index: 10;
+}
+
+/* Design Karty - Cigarette Card Style */
+.card {
+    width: 120px;
+    height: 180px;
+    background: #f4e4bc; /* Béžový papír */
+    border: 4px solid #3e2723;
+    border-radius: 8px;
+    position: relative;
+    box-shadow: 2px 2px 5px rgba(0,0,0,0.5);
+    transition: transform 0.2s;
+    background-image: url('https://www.transparenttextures.com/patterns/aged-paper.png');
+}
+
+.card:hover {
+    transform: scale(1.2) translateY(-20px);
+    z-index: 100;
+}
+
+.card-top {
+    height: 50%;
+    width: 100%;
+    overflow: hidden;
+    border-bottom: 2px solid #3e2723;
+}
+
+.card-top img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.card-bottom {
+    padding: 5px;
+    text-align: center;
+    font-size: 10px;
+    color: #2c1e14;
+}
+
+.card-title {
+    font-weight: bold;
+    font-size: 12px;
+    text-transform: uppercase;
+    margin-bottom: 2px;
+}
+
+/* Staty karty */
+.stat-box {
+    position: absolute;
+    width: 24px;
+    height: 24px;
+    background: #fff;
+    border: 2px solid #000;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: bold;
+    font-size: 14px;
+    z-index: 5;
+}
+
+.cost { top: -10px; left: -10px; background: #2196F3; color: white; }
+.atk { bottom: -10px; left: -10px; background: #FFC107; } /* Shield icon logic via CSS or img */
+.hp { bottom: -10px; right: -10px; background: #F44336; color: white; }
+
+.playable {
+    box-shadow: 0 0 15px #4CAF50;
+    cursor: pointer;
+}
+
+#end-turn-btn {
+    position: absolute;
+    right: 20px;
+    top: 50%;
+    transform: translateY(-50%);
+    padding: 15px 30px;
+    background: #5d4037;
+    color: #f4e4bc;
+    border: 2px solid #f4e4bc;
+    font-family: 'Western';
+    cursor: pointer;
+    font-size: 20px;
+}
+
+.hero-portrait {
+    width: 80px;
+    height: 80px;
+    border-radius: 50%;
+    background: #333;
+    border: 3px solid gold;
+    position: absolute;
+    right: 50%;
+}
+.player .hero-portrait { bottom: 10px; transform: translateX(50%); }
+.opponent .hero-portrait { top: 10px; transform: translateX(50%); }
+
+.hp-badge {
+    position: absolute;
+    bottom: -5px;
+    right: -5px;
+    background: red;
+    color: white;
+    border-radius: 50%;
+    padding: 5px;
+    font-weight: bold;
+}

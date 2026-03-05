@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <link rel="stylesheet" href="style.css">
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <title>Shootout</title>
+</head>
+<body>
+    <div id="game-container" style="display:none;">
+        <!-- Pozadí stolu -->
+        <div class="table-background"></div>
+
+        <!-- Oponent (Nahoře) -->
+        <div class="player-area opponent">
+            <div class="hero-portrait" id="opp-hero">
+                <div class="hp-badge">20</div>
+            </div>
+            <div class="hand" id="opp-hand"></div> <!-- Karty rubem -->
+            <div class="mana-bar" id="opp-mana">Grit: 1/1</div>
+            <div class="board" id="opp-board"></div>
+        </div>
+
+        <!-- Středová čára / UI prvky -->
+        <div class="center-ui">
+            <button id="end-turn-btn" onclick="endTurn()">END TURN</button>
+            <div id="game-message">YOUR TURN</div>
+        </div>
+
+        <!-- Hráč (Dole) -->
+        <div class="player-area player">
+            <div class="board" id="player-board"></div>
+            <div class="mana-bar" id="player-mana">Grit: 1/1</div>
+            <div class="hand" id="player-hand"></div>
+            <div class="hero-portrait" id="player-hero">
+                <div class="hp-badge">20</div>
+            </div>
+            <div class="deck" id="player-deck">
+                <span id="deck-count">30</span>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Detail karty (Zoom) -->
+    <div id="card-preview" class="hidden"></div>
+
+    <script src="cards.js"></script>
+    <script src="script.js"></script>
+</body>
+</html>
