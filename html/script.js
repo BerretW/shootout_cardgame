@@ -24,12 +24,14 @@ let enemyMaxHp = 30;
 let myTurn = false;
 let isSinglePlayer = false;
 let gameEnded = false;
+let mpEnemyHandCount = 5; // Počet karet v ruce protivníka (MP sync)
 
 // Hero selection (MP synchronizace)
 let myHeroChoice = null;
 let opponentHeroId = null;
 let pendingIsFirst = false;
 let pendingOppName = "";
+let myInventoryCards = [];
 
 // Hřbitovy
 let playerGraveyard = [];
@@ -43,10 +45,103 @@ let selectedAttacker = null; // Jednotka vybraná k útoku
 let moveHistory = [];
 
 // ==========================================
+// ZVUKOVÉ EFEKTY (Web Audio API)
+// ==========================================
+let soundMuted = false;
+const customSounds = {}; // { eventName: AudioBuffer }
+
+const SoundFX = (() => {
+    let ctx = null;
+    function getCtx() {
+        if (!ctx) ctx = new (window.AudioContext || window['webkitAudioContext'])();
+        return ctx;
+    }
+    function tone(freq, type, duration, vol = 0.18, delay = 0) {
+        if (soundMuted) return;
+        try {
+            const c = getCtx();
+            const osc = c.createOscillator();
+            const gain = c.createGain();
+            osc.connect(gain); gain.connect(c.destination);
+            osc.type = type;
+            osc.frequency.setValueAtTime(freq, c.currentTime + delay);
+            gain.gain.setValueAtTime(0.001, c.currentTime + delay);
+            gain.gain.linearRampToValueAtTime(vol, c.currentTime + delay + 0.01);
+            gain.gain.exponentialRampToValueAtTime(0.001, c.currentTime + delay + duration);
+            osc.start(c.currentTime + delay);
+            osc.stop(c.currentTime + delay + duration + 0.05);
+        } catch(e) {}
+    }
+    function playCustom(name, fallback) {
+        if (soundMuted) return;
+        if (customSounds[name]) {
+            try {
+                const c = getCtx();
+                const source = c.createBufferSource();
+                source.buffer = customSounds[name];
+                source.connect(c.destination);
+                source.start();
+            } catch(e) {}
+        } else {
+            fallback();
+        }
+    }
+    return {
+        hover:   () => playCustom('hover',   () => tone(900, 'sine', 0.06, 0.07)),
+        zoom:    () => playCustom('zoom',    () => { tone(440, 'sine', 0.12, 0.15); tone(660, 'sine', 0.18, 0.12, 0.07); }),
+        play:    () => playCustom('play',    () => { tone(300, 'triangle', 0.1, 0.25); tone(480, 'triangle', 0.18, 0.2, 0.08); tone(600, 'sine', 0.22, 0.12, 0.16); }),
+        attack:  () => playCustom('attack',  () => { tone(180, 'sawtooth', 0.08, 0.3); tone(120, 'sawtooth', 0.12, 0.2, 0.06); }),
+        death:   () => playCustom('death',   () => { tone(250, 'triangle', 0.1, 0.2); tone(160, 'triangle', 0.2, 0.15, 0.09); tone(90, 'sine', 0.3, 0.1, 0.18); }),
+        endTurn: () => playCustom('endTurn', () => { tone(350, 'sine', 0.12, 0.15); tone(280, 'sine', 0.18, 0.1, 0.1); }),
+        draw:    () => playCustom('draw',    () => tone(700, 'sine', 0.09, 0.1)),
+        victory: () => playCustom('victory', () => { [0, 0.12, 0.24, 0.38].forEach((d, i) => { tone([440, 550, 660, 880][i], 'sine', 0.25, 0.2, d); }); }),
+        defeat:  () => playCustom('defeat',  () => { [0, 0.15, 0.32].forEach((d, i) => { tone([300, 220, 150][i], 'triangle', 0.3, 0.2, d); }); }),
+
+        decodeAndStore: (name, arrayBuffer) => {
+            try {
+                const c = getCtx();
+                c.decodeAudioData(arrayBuffer, (buffer) => {
+                    customSounds[name] = buffer;
+                    const el = document.getElementById('sound-status-' + name);
+                    if (el) el.textContent = '✓';
+                });
+            } catch(e) {}
+        }
+    };
+})();
+
+function toggleMute() {
+    soundMuted = !soundMuted;
+    localStorage.setItem('shootout_muted', soundMuted ? '1' : '0');
+    document.getElementById('sound-btn').textContent = soundMuted ? '🔇' : '🔊';
+    const muteBtn = document.getElementById('sound-settings-mute-btn');
+    if (muteBtn) muteBtn.textContent = soundMuted ? '🔇 Zvuk vypnut' : '🔊 Zvuk zapnut';
+}
+
+function openSoundSettings() {
+    document.getElementById('sound-settings-modal').style.display = 'flex';
+}
+
+function closeSoundSettings() {
+    document.getElementById('sound-settings-modal').style.display = 'none';
+}
+
+function handleSoundUpload(name, input) {
+    if (!input.files || !input.files[0]) return;
+    const reader = new FileReader();
+    reader.onload = (e) => SoundFX.decodeAndStore(name, e.target.result.slice(0));
+    reader.readAsArrayBuffer(input.files[0]);
+}
+
+// ==========================================
 // 1. INICIALIZACE A KOMUNIKACE (NUI)
 // ==========================================
 
 $(document).ready(function() {
+    // Inicializace mute stavu
+    soundMuted = localStorage.getItem('shootout_muted') === '1';
+    $('#sound-btn').text(soundMuted ? '🔇' : '🔊');
+
     // Naslouchání zprávám z LUA (Client)
     window.addEventListener('message', function(event) {
         let data = event.data;
@@ -59,10 +154,14 @@ $(document).ready(function() {
             }
         } 
         else if (data.type === "start_game") {
+            initCardDB(data.cards);
+            myInventoryCards = data.myCards || [];
             isSinglePlayer = false;
             showHeroSelection(data.isFirst, data.opponentName);
         }
         else if (data.type === "start_singleplayer") {
+            initCardDB(data.cards);
+            myInventoryCards = data.myCards || [];
             isSinglePlayer = true;
             showHeroSelection(true, "Training Bot");
         }
@@ -73,18 +172,56 @@ $(document).ready(function() {
             showNotification(data.message, 4000);
             setTimeout(exitGame, 4000);
         }
+        else if (data.type === "pack_opened") {
+            if ((!CardDB || CardDB.length === 0) && data.allCards) initCardDB(data.allCards);
+            showPackOpening(data.packId, data.cards);
+        }
+    });
+    $(document).on('mouseenter', '.hist-card-name', function() {
+        let cardId = $(this).data('id');
+        let cardData = CardDB.find(c => c.id == cardId);
+        if (cardData) {
+            // Vytvoříme dočasný objekt karty pro tooltip
+            // (Tooltip funkce očekává objekt, ne jen ID)
+            let dummyCard = { ...cardData, gear: [] }; 
+            // Pro unit/landmark doplníme aktuální staty z DB (ne ze hry, historie ukazuje base kartu)
+            if(dummyCard.type === "Unit" || dummyCard.type === "Landmark") {
+                dummyCard.hp = dummyCard.hp; 
+                dummyCard.atk = dummyCard.atk;
+                dummyCard.keywords = getCardLogic(dummyCard).keywords || [];
+            }
+            showCardTooltip(dummyCard);
+        }
     });
 
+    $(document).on('mouseleave', '.hist-card-name', function() {
+        hideCardTooltip();
+    });
     // Klávesové zkratky
     document.onkeyup = function (data) {
         if (data.which == 27) { // ESC
-            exitGame();
+            if ($("#card-zoom").is(":visible")) {
+                hideCardZoom();
+            } else {
+                exitGame();
+            }
         }
-        else if (data.which == 2) { // Pravé tlačítko myši (volitelné, v NUI to bývá jinak, ale pro web debug)
+        else if (data.which == 2) {
             cancelSelection();
         }
     };
     
+    // Pravé tlačítko mimo kartu zavře zoom
+    $(document).on("contextmenu", function(e) {
+        if (!$(e.target).closest('.card').length) {
+            e.preventDefault();
+            hideCardZoom();
+        }
+    });
+
+    // Levé kliknutí zavře zoom
+    $(document).on("click", function() { hideCardZoom(); });
+
     // Kliknutí mimo zruší výběr (pokud neklikáme na kartu nebo hrdinu)
     $(document).mousedown(function(e) {
         const t = $(e.target);
@@ -97,9 +234,15 @@ $(document).ready(function() {
     });
 });
 
-function addToHistory(text) {
+function addToHistory(text, cardId = null) {
+    // Pokud je předáno ID karty, nahradíme zástupný znak v textu nebo prostě formátujeme jméno
+    // Ale pro jednoduchost budeme volat funkci takto: 
+    // addToHistoryHtml(`<span class="hist-you">Ty:</span> Hraješ <span class="hist-card-name" data-id="${card.id}">${card.name}</span>`);
+    
+    // Ukládáme přímo HTML řetězec
     moveHistory.unshift(text);
     if (moveHistory.length > 20) moveHistory.pop();
+    
     const list = $("#history-list");
     list.empty();
     moveHistory.forEach(entry => {
@@ -123,10 +266,13 @@ function cancelSelection() {
 }
 
 function exitGame() {
-    // Odeslat info do LUA, že končíme
-    $.post('https://berretw-shootout_cardgame/exit', JSON.stringify({}));
+    $.post('https://shootout_cardgame/exit', JSON.stringify({}));
     $("#game-container").hide();
     $("#result-overlay").hide();
+    
+    // Skrýt panel historie při odchodu
+    $("#history-panel").hide();
+    
     gameEnded = true;
 }
 
@@ -151,8 +297,18 @@ function showHeroSelection(isFirst, oppName) {
     pendingIsFirst = isFirst;
     pendingOppName = oppName;
 
-    // Vyfiltrujeme jen Hero karty
-    let heroes = CardDB.filter(c => c.type === "Hero");
+    // Vyfiltrujeme jen Hero karty, které má hráč v inventáři
+    const inventoryHeroIds = new Set(myInventoryCards.filter(c => c.type === "Hero").map(c => c.id));
+    let heroes = CardDB.filter(c => c.type === "Hero" && inventoryHeroIds.has(c.id));
+
+    if (heroes.length === 0) {
+        $("#hero-list").html(`
+            <div style="color:red; font-family:'Western'; font-size:20px; text-align:center; padding:60px 20px;">
+                Nemáš žádnou hero kartu v inventáři!<br>Otevři balíček karet a získej hrdinu.
+            </div>
+        `);
+        return;
+    }
 
     heroes.forEach(hero => {
         let el = $(`
@@ -198,8 +354,9 @@ function initGame(isFirst, oppName, chosenHero, enemyHeroOverride) {
     playerGraveyard = []; enemyGraveyard = [];
     selectedCardIndex = -1; selectedAttacker = null;
     gameEnded = false;
+    mpEnemyHandCount = 4; // Oba hráči začínají se 4 kartami
     moveHistory = []; $("#history-list").empty();
-
+    $("#history-panel").show();
     // Nastavení Hráče
     playerHp = chosenHero.hp;
     playerMaxHp = chosenHero.hp;
@@ -261,12 +418,8 @@ function startPlayerTurn() {
     // Sync pasivních efektů (Voodoo Altar, apod.) protivníkovi
     emitAction("turnStartSync", {
         enemyHp: enemyHp,
-        boardHps: enemyBoard.map(u => u.hp)
-    });
-
-    // Reset stunu na nepřátelských jednotkách (HANDCUFFS vliv vypršel)
-    enemyBoard.forEach(u => {
-        if (u.stunned) u.stunned = false;
+        boardHps: enemyBoard.map(u => u.hp),
+        boardStunned: enemyBoard.map(u => u.stunned || false)
     });
 
     $("#game-message").text("YOUR TURN");
@@ -292,8 +445,9 @@ function endTurn() {
     
     cancelSelection();
     
+    SoundFX.endTurn();
     // Odeslání akce serveru (pokud MP)
-    emitAction("endTurn", {});
+    emitAction("endTurn", { handCount: playerHand.length });
     
     updateUI();
 
@@ -340,8 +494,10 @@ function handleCardClick(index) {
         (card.logic.onPlay && text.includes("target"))
     );
 
-    // Výjimky pro globální spelly (Dynamite, Bar Fight), které cíl nepotřebují
-    const isGlobal = text.includes("all units") || text.includes("all characters") || text.includes("random");
+    // Výjimky pro globální spelly, které cíl nepotřebují
+    const isGlobal = text.includes("all units") || text.includes("all characters") ||
+        text.includes("all enemy") || text.includes("all friendly") ||
+        text.includes("all damaged") || text.includes("random");
     
     if (needsTarget && !isGlobal) {
         selectedCardIndex = index;
@@ -440,21 +596,25 @@ function getCardCost(card) {
     if (card.type === "Gear" && playerBoard.some(b => b.id === 61)) {
         cost = Math.max(0, cost - 1);
     }
+    // FORT WORTH (id:93): All Units cost (1) less
+    if (card.type === "Unit" && playerBoard.some(b => b.id === 93)) {
+        cost = Math.max(0, cost - 1);
+    }
     return cost;
 }
 
 function playCard(index, target) {
     let card = playerHand[index];
 
-    addToHistory(`<span class="hist-you">Ty:</span> zahraješ <b>${card.name}</b>`);
+        let cardSpan = `<span class="hist-card-name" data-id="${card.id}">${card.name}</span>`;
+    addToHistory(`<span class="hist-you">Ty:</span> Hraješ ${cardSpan}`);
 
     // Odečíst manu (s případnou slevou)
     currentMana -= getCardCost(card);
     
     // Odstranit z ruky
-    playerHand.splice(index, 1);
+ playerHand.splice(index, 1);
 
-    // Zpracování Targetu pro síťovou komunikaci
     let targetInfo = null;
     if (target && typeof target !== "string") {
         let isMyUnit = playerBoard.includes(target);
@@ -516,21 +676,33 @@ function playCard(index, target) {
     }
 
     // Síťová synchronizace (MP)
-    emitAction("playCard", { 
-        cardId: card.id, 
-        targetIndex: targetInfo?.index, 
-        targetType: targetInfo?.type 
+    emitAction("playCard", {
+        cardId: card.id,
+        targetIndex: targetInfo?.index,
+        targetType: targetInfo?.type,
+        syncedHp: playerHp,
+        syncedEnemyHp: enemyHp,
+        syncedBoardHps: playerBoard.map(u => u.hp),
+        syncedEnemyBoardHps: enemyBoard.map(u => u.hp),
+        handCount: playerHand.length
     });
 
+    SoundFX.play();
     checkDeaths();
     updateUI();
 }
 
 function performAttack(myUnitIndex, targetUnitIndex, isTargetHero) {
     let attacker = playerBoard[myUnitIndex];
+    let attackerSpan = `<span class="hist-card-name" data-id="${attacker.id}">${attacker.name}</span>`;
 
     let targetName = isTargetHero ? "Hrdinu" : (enemyBoard[targetUnitIndex]?.name || "?");
-    addToHistory(`<span class="hist-you">Ty:</span> <b>${attacker.name}</b> útočí na <b>${targetName}</b>`);
+    // Pokud cílem není hrdina, uděláme ho taky interaktivním
+    if (!isTargetHero && enemyBoard[targetUnitIndex]) {
+        targetName = `<span class="hist-card-name" data-id="${enemyBoard[targetUnitIndex].id}">${enemyBoard[targetUnitIndex].name}</span>`;
+    }
+
+    addToHistory(`<span class="hist-you">Ty:</span> ${attackerSpan} ⚔️ ${targetName}`);
 
     // Gunslinger: sledujeme zbývající útoky
     attacker.attacksRemaining = (attacker.attacksRemaining || 1) - 1;
@@ -554,7 +726,11 @@ function performAttack(myUnitIndex, targetUnitIndex, isTargetHero) {
     emitAction("attack", {
         attackerIndex: myUnitIndex,
         targetIndex: isTargetHero ? -1 : targetUnitIndex,
-        targetType: isTargetHero ? "hero" : "enemyUnit"
+        targetType: isTargetHero ? "hero" : "enemyUnit",
+        syncedPlayerHp: playerHp,
+        syncedEnemyHp: enemyHp,
+        syncedAttackerHp: attacker.hp,
+        syncedDefenderHp: isTargetHero ? undefined : enemyBoard[targetUnitIndex]?.hp
     });
 
     // Animace útoku – damage se aplikoval výše, UI se obnoví po animaci
@@ -572,6 +748,7 @@ function performAttack(myUnitIndex, targetUnitIndex, isTargetHero) {
     let nx = (dx / dist) * 60;
     let ny = (dy / dist) * 60;
 
+    SoundFX.attack();
     attackerEl.css({ transition: 'transform 0.15s ease-in', transform: `translate(${nx}px, ${ny}px)` });
 
     setTimeout(() => {
@@ -608,6 +785,7 @@ function checkDeaths() {
             }
             if (u.logic && u.logic.onDeath) u.logic.onDeath(GameInterface, u);
             playerGraveyard.push(u);
+            SoundFX.death();
             return false;
         }
         return true;
@@ -642,9 +820,11 @@ function showEndScreen(isVictory) {
     if (isVictory) {
         $("#result-title").text("VICTORY").css("color", "gold");
         $("#result-desc").text("The West is yours, partner.");
+        setTimeout(() => SoundFX.victory(), 300);
     } else {
         $("#result-title").text("DEFEAT").css("color", "#8b0000");
         $("#result-desc").text("Looks like this is the end of the line.");
+        setTimeout(() => SoundFX.defeat(), 300);
     }
 }
 
@@ -754,15 +934,16 @@ function aiAttackPhase() {
 // ==========================================
 
 function applyAuras() {
-    const hasTotemPole  = playerBoard.some(b => b.id === 65);
-    const hasGangLeader = playerBoard.some(b => b.id === 35);
-    const hasHideout    = playerBoard.some(b => b.id === 64);
-    const hasGallows    = playerBoard.some(b => b.id === 68);
+    const hasTotemPole    = playerBoard.some(b => b.id === 65);
+    const hasHuntingGround = playerBoard.some(b => b.id === 105);
+    const hasGangLeader  = playerBoard.some(b => b.id === 35);
+    const hasHideout     = playerBoard.some(b => b.id === 64);
+    const hasGallows     = playerBoard.some(b => b.id === 68);
 
     playerBoard.forEach(u => {
         // --- ATK aura ---
         let newAuraAtk = 0;
-        if (hasTotemPole && u.faction === "Wild") newAuraAtk += 1;
+        if ((hasTotemPole || hasHuntingGround) && u.faction === "Wild") newAuraAtk += 1;
         // GRIZZLY (id:11): +3 ATK while damaged
         if (u.id === 11 && u.hp < u.maxHp) newAuraAtk += 3;
         // NIGHT FOLK (id:16): +2 ATK if player HP < enemy HP
@@ -826,8 +1007,9 @@ function updateUI() {
         if (index === selectedCardIndex) el.addClass("card-selected");
         
         el.click(() => handleCardClick(index));
-        el.on("mouseenter", () => showCardTooltip(card));
+        el.on("mouseenter", () => { showCardTooltip(card); SoundFX.hover(); });
         el.on("mouseleave", hideCardTooltip);
+        el.on("contextmenu", (e) => { e.preventDefault(); showCardZoom(card); });
 
         $("#player-hand").append(el);
     });
@@ -838,7 +1020,7 @@ function updateUI() {
     
     // --- RENDER ENEMY HAND ---
     $("#opp-hand").empty();
-    let count = isSinglePlayer ? enemyHandAI.length : 5; // V MP nevidíme počet přesně bez syncu, 5 je placeholder
+    let count = isSinglePlayer ? enemyHandAI.length : mpEnemyHandCount;
     for(let i=0; i<count; i++) {
         $("#opp-hand").append(`<div class="card-back"></div>`);
     }
@@ -905,8 +1087,9 @@ function renderBoard(container, boardData, isEnemy) {
         }
 
         el.click(() => handleUnitClick(card, isEnemy));
-        el.on("mouseenter", () => showCardTooltip(card));
+        el.on("mouseenter", () => { showCardTooltip(card); SoundFX.hover(); });
         el.on("mouseleave", hideCardTooltip);
+        el.on("contextmenu", (e) => { e.preventDefault(); showCardZoom(card); });
         container.append(el);
     });
 }
@@ -948,6 +1131,57 @@ function showCardTooltip(card) {
 
 function hideCardTooltip() {
     $("#card-tooltip").hide();
+}
+
+function showCardZoom(card) {
+    let imgPath = getImgName(card);
+    $("#card-zoom-img").attr("src", imgPath);
+
+    $("#cz-name").text(card.name);
+    $("#cz-meta").text(`${card.faction} · ${card.type}`);
+
+    let costDisplay = (typeof getCardCost === "function") ? getCardCost(card) : card.cost;
+    let costStr = costDisplay < card.cost
+        ? `💎 <span style="color:#76ff03">${costDisplay}</span> <span style="text-decoration:line-through;color:#666">${card.cost}</span> Grit`
+        : `💎 ${card.cost} Grit`;
+    $("#cz-cost").html(costStr);
+
+    if (card.type !== "Spell" && card.type !== "Gear") {
+        let atkColor = card.atk > card.baseAtk ? "#76ff03" : "#eee";
+        let hpColor  = card.hp < card.maxHp ? "#ff5252" : (card.hp > card.baseHp ? "#76ff03" : "#eee");
+        $("#cz-stats").html(
+            `⚔️ <span style="color:${atkColor};font-weight:bold">${card.atk}</span>` +
+            `&nbsp;&nbsp;❤️ <span style="color:${hpColor};font-weight:bold">${card.hp}</span>` +
+            (card.maxHp !== card.hp ? ` <span style="color:#666;font-size:10px">/${card.maxHp}</span>` : "")
+        );
+    } else {
+        $("#cz-stats").html("");
+    }
+
+    let kw = (card.keywords && card.keywords.length > 0) ? card.keywords.join(" · ") : "";
+    $("#cz-keywords").text(kw);
+    $("#cz-text").text(card.text || "");
+
+    let gearHtml = "";
+    if (card.gear && card.gear.length > 0) {
+        card.gear.forEach(g => {
+            gearHtml += `<div class="cz-gear-item"><div class="cz-gear-name">🔧 ${g.name}</div><div>${g.text || ""}</div></div>`;
+        });
+    }
+    $("#cz-gear").html(gearHtml);
+
+    // Restartuj animaci
+    const el = document.getElementById("card-zoom");
+    el.style.display = "block";
+    el.style.animation = "none";
+    void el.offsetWidth;
+    el.style.animation = "";
+
+    SoundFX.zoom();
+}
+
+function hideCardZoom() {
+    $("#card-zoom").hide();
 }
 
 function showGraveyard(owner) {
@@ -1034,15 +1268,18 @@ function createCardHTML(card, context) {
 // ==========================================
 
 function drawCard(owner) {
+    // Pool všech hratelných karet (bez Hero a tokenů)
+    const pool = CardDB.filter(c => c.type !== "Hero" && !c.token);
+    if (!pool.length) return;
+    const template = pool[Math.floor(Math.random() * pool.length)];
+
     if (owner === "player") {
-        if (playerHand.length >= 10) return; // Ruka plná
-        let randomId = Math.floor(Math.random() * 84) + 1;
-        let card = createCardInstance(randomId, "player");
-        if (card) playerHand.push(card);
+        if (playerHand.length >= 10) return;
+        let card = createCardInstance(template.id, "player");
+        if (card) { playerHand.push(card); SoundFX.draw(); }
     } else if (owner === "enemy") {
         if (enemyHandAI.length >= 10) return;
-        let randomId = Math.floor(Math.random() * 84) + 1;
-        let card = createCardInstance(randomId, "enemy");
+        let card = createCardInstance(template.id, "enemy");
         if (card) enemyHandAI.push(card);
     }
 }
@@ -1051,8 +1288,12 @@ function createCardInstance(cardId, owner) {
     let template = CardDB.find(c => c.id === cardId); 
     if(!template) return null;
     
-    // Rekurzivní ochrana proti Hero/Token kartám v balíčku
-    if (template.type === "Hero" || template.type === "Token") return createCardInstance(Math.floor(Math.random()*60)+1, owner);
+    // Ochrana proti Hero/Token kartám – vyber jinou z poolu
+    if (template.type === "Hero" || template.token) {
+        const pool = CardDB.filter(c => c.type !== "Hero" && !c.token);
+        if (!pool.length) return null;
+        return createCardInstance(pool[Math.floor(Math.random() * pool.length)].id, owner);
+    }
 
     // Klonování objektu karty
     let card = { 
@@ -1116,11 +1357,18 @@ function handleRemoteAction(action) {
         action.payload.boardHps.forEach((hp, i) => {
             if (playerBoard[i]) playerBoard[i].hp = hp;
         });
+        // Synchronizace stunu – protivník vidí stun na svém enemyBoard = náš playerBoard
+        if (action.payload.boardStunned) {
+            action.payload.boardStunned.forEach((stunned, i) => {
+                if (playerBoard[i]) playerBoard[i].stunned = stunned;
+            });
+        }
         checkDeaths();
         updateUI();
         return;
     }
     else if (action.type === "endTurn") {
+        if (action.payload.handCount !== undefined) mpEnemyHandCount = action.payload.handCount;
         startPlayerTurn();
     }
     else if (action.type === "playCard") {
@@ -1163,6 +1411,12 @@ function handleRemoteAction(action) {
                 }
             }
         }
+        if (p.syncedHp !== undefined) enemyHp = p.syncedHp;
+        if (p.syncedEnemyHp !== undefined) playerHp = p.syncedEnemyHp;
+        if (p.syncedBoardHps) p.syncedBoardHps.forEach((hp, i) => { if (enemyBoard[i]) enemyBoard[i].hp = hp; });
+        if (p.syncedEnemyBoardHps) p.syncedEnemyBoardHps.forEach((hp, i) => { if (playerBoard[i]) playerBoard[i].hp = hp; });
+        if (p.handCount !== undefined) mpEnemyHandCount = Math.max(0, p.handCount - 1); // karta byla zahrána
+
         checkDeaths();
         updateUI();
     }
@@ -1171,29 +1425,68 @@ function handleRemoteAction(action) {
         let attacker = enemyBoard[p.attackerIndex];
         if (!attacker) return;
 
+        let attackerSpan = `<span class="hist-card-name" data-id="${attacker.id}">${attacker.name}</span>`;
         let oppTargetName = p.targetType === "hero" ? "Tvého Hrdinu" : (playerBoard[p.targetIndex]?.name || "?");
-        addToHistory(`<span class="hist-opp">Opp:</span> <b>${attacker.name}</b> útočí na <b>${oppTargetName}</b>`);
+        if (p.targetType !== "hero" && playerBoard[p.targetIndex]) {
+            oppTargetName = `<span class="hist-card-name" data-id="${playerBoard[p.targetIndex].id}">${playerBoard[p.targetIndex].name}</span>`;
+        }
+        addToHistory(`<span class="hist-opp">Opp:</span> ${attackerSpan} ⚔️ ${oppTargetName}`);
 
         attacker.attacksRemaining = (attacker.attacksRemaining || 1) - 1;
         if (attacker.attacksRemaining <= 0) attacker.canAttack = false;
 
         if (p.targetType === "hero") {
-            // Protivník útočí na naše HP
-            playerHp -= attacker.atk;
-            if (attacker.id === 17) enemyHp = Math.min(enemyMaxHp, enemyHp + attacker.atk);
+            playerHp = p.syncedEnemyHp ?? (playerHp - attacker.atk);
+            enemyHp = p.syncedPlayerHp ?? (attacker.id === 17 ? Math.min(enemyMaxHp, enemyHp + attacker.atk) : enemyHp);
         } else {
-            // Protivník útočí na naši jednotku
             let defender = playerBoard[p.targetIndex];
             if (!defender) return;
-            defender.hp -= attacker.atk;
-            let sniperImmune = attacker.text && attacker.text.toLowerCase().includes("immune while attacking");
-            if (!sniperImmune) attacker.hp -= defender.atk;
-            if (attacker.keywords.includes("Lethal")) defender.hp = -99;
-            if (defender.keywords.includes("Lethal")) attacker.hp = -99;
-            if (attacker.id === 17) enemyHp = Math.min(enemyMaxHp, enemyHp + attacker.atk);
+            if (p.syncedDefenderHp !== undefined) {
+                defender.hp = p.syncedDefenderHp;
+            } else {
+                defender.hp -= attacker.atk;
+                if (attacker.keywords.includes("Lethal")) defender.hp = -99;
+                if (defender.keywords.includes("Lethal")) attacker.hp = -99;
+            }
+            if (p.syncedAttackerHp !== undefined) {
+                attacker.hp = p.syncedAttackerHp;
+            } else {
+                let sniperImmune = attacker.text && attacker.text.toLowerCase().includes("immune while attacking");
+                if (!sniperImmune) attacker.hp -= defender.atk;
+                if (defender.keywords.includes("Lethal")) attacker.hp = -99;
+            }
+            playerHp = p.syncedEnemyHp ?? playerHp;
+            enemyHp = p.syncedPlayerHp ?? enemyHp;
         }
-        checkDeaths();
-        updateUI();
+
+        // Animace útoku protivníka
+        SoundFX.attack();
+        let attackerEl = $("#opp-board .card").eq(p.attackerIndex);
+        let targetEl = p.targetType === "hero" ? $("#player-hero") : $("#player-board .card").eq(p.targetIndex);
+
+        if (attackerEl.length) {
+            let aRect = attackerEl[0].getBoundingClientRect();
+            let tRect = targetEl.length ? targetEl[0].getBoundingClientRect() : null;
+            let dx = tRect ? (tRect.left + tRect.width / 2) - (aRect.left + aRect.width / 2) : 0;
+            let dy = tRect ? (tRect.top + tRect.height / 2) - (aRect.top + aRect.height / 2) : 80;
+            let dist = Math.sqrt(dx * dx + dy * dy) || 1;
+            let nx = (dx / dist) * 60, ny = (dy / dist) * 60;
+
+            attackerEl.css({ transition: 'transform 0.15s ease-in', transform: `translate(${nx}px, ${ny}px)` });
+            setTimeout(() => {
+                targetEl.addClass('card-hit');
+                attackerEl.css({ transition: 'transform 0.12s ease-out', transform: 'translate(0,0)' });
+                setTimeout(() => {
+                    targetEl.removeClass('card-hit');
+                    attackerEl.css('transition', '');
+                    checkDeaths();
+                    updateUI();
+                }, 180);
+            }, 160);
+        } else {
+            checkDeaths();
+            updateUI();
+        }
     }
 }
 
@@ -1253,6 +1546,34 @@ const GameInterface = {
     },
     discardAllCards: (owner) => {
         if(owner==="player") { playerGraveyard.push(...playerHand); playerHand = []; }
+    },
+    discardByType: (owner, count, typeName) => {
+        const hand      = owner === "player" ? playerHand      : enemyHandAI;
+        const graveyard = owner === "player" ? playerGraveyard : enemyGraveyard;
+        const type = (typeName || "").toLowerCase().replace(/s$/, ""); // normalizuj plural
+
+        // Vyber kandidáty z ruky podle typu
+        let pool;
+        if (!type || type === "card") {
+            pool = [...hand];
+        } else if (type === "token") {
+            pool = hand.filter(c => c.isToken === true);
+        } else {
+            // Shoda s typem karty (spell, unit, gear, landmark) nebo s názvem karty
+            pool = hand.filter(c =>
+                (c.type && c.type.toLowerCase() === type) ||
+                (c.name && c.name.toLowerCase() === type)
+            );
+        }
+
+        let n = Math.min(count, pool.length);
+        for (let i = 0; i < n; i++) {
+            if (pool.length === 0) break;
+            let ri   = Math.floor(Math.random() * pool.length);
+            let card = pool.splice(ri, 1)[0];
+            let hi   = hand.indexOf(card);
+            if (hi !== -1) graveyard.push(...hand.splice(hi, 1));
+        }
     },
     returnFromGraveyard: (owner) => {
         // Vrátí posledně mrtvou unit z hřbitova do ruky (s plným HP)
@@ -1381,6 +1702,7 @@ const EnemyGameInterface = {
     addCardToHand: () => {},
     discardCards: () => {},
     discardAllCards: () => {},
+    discardByType: () => {},
     returnFromGraveyard: () => {},
     summonFromGraveyard: (owner, faction) => {
         if (owner === "player") {
@@ -1432,3 +1754,155 @@ const EnemyGameInterface = {
     get board() { return enemyBoard; },
     get enemyBoard() { return playerBoard; }
 };
+
+// ==========================================
+// PACK OPENING
+// ==========================================
+
+function showPackOpening(_packId, cardIds) {
+    // Cleanup any previous drag listeners
+    if (showPackOpening._cleanup) {
+        showPackOpening._cleanup();
+        showPackOpening._cleanup = null;
+    }
+
+    const db = (CardDB && CardDB.length > 0) ? CardDB : _CardDB_fallback;
+    const cards = (cardIds || []).map(id => db.find(c => c.id == id) || { id, name: '???', rarity: 'Common', type: 'Unit' });
+    if (!cards.length) return;
+
+    const overlay  = document.getElementById('pack-opening-overlay');
+    const row      = document.getElementById('pack-cards-row');
+    const hint     = document.getElementById('pack-opening-hint');
+    const btn      = document.getElementById('pack-collect-btn');
+
+    row.innerHTML  = '';
+    hint.style.display = 'block';
+    btn.style.display  = 'none';
+
+    let revealedCount = 0;
+    let dragState = null;
+
+    function revealCard(slot, inner) {
+        // Brief upward pop before flip
+        inner.style.transition = 'transform 0.14s ease-out';
+        inner.style.transform  = 'translateY(-22px)';
+        setTimeout(() => {
+            inner.style.transition = '';
+            inner.style.transform  = '';
+            slot.style.cursor = 'default';
+            slot.classList.add('revealed');
+            slot.classList.add('just-revealed');
+            setTimeout(() => slot.classList.remove('just-revealed'), 600);
+            SoundFX.draw();
+            // Extra sound for epic/legendary
+            const rClass = [...slot.querySelector('.pack-slot-face').classList].find(c => c.startsWith('r-'));
+            if (rClass === 'r-legendary') setTimeout(() => SoundFX.victory(), 250);
+            else if (rClass === 'r-epic')  setTimeout(() => SoundFX.zoom(),    150);
+            revealedCount++;
+            if (revealedCount === cards.length) {
+                setTimeout(() => { hint.style.display = 'none'; btn.style.display = 'block'; }, 450);
+            }
+        }, 140);
+    }
+
+    function onMouseMove(e) {
+        if (!dragState) return;
+        const { slot, inner, startY, startX } = dragState;
+        if (slot.classList.contains('revealed')) { dragState = null; return; }
+        const dy = e.clientY - startY;
+        const dx = e.clientX - startX;
+        dragState.moved = dy;
+        if (dy < 0) {
+            inner.style.transform = `translateY(${dy}px) rotate(${dx * 0.015}deg)`;
+        }
+    }
+
+    function onMouseUp(_e) {
+        if (!dragState) return;
+        const { slot, inner, startTime } = dragState;
+        const moved = dragState.moved || 0;
+        dragState = null;
+        if (slot.classList.contains('revealed')) return;
+
+        const elapsed   = Date.now() - startTime;
+        const draggedUp = moved < -50;
+        const quickClick = elapsed < 280 && Math.abs(moved) < 15;
+
+        if (draggedUp || quickClick) {
+            revealCard(slot, inner);
+        } else {
+            inner.style.transition = 'transform 0.28s ease';
+            inner.style.transform  = '';
+            slot.style.cursor = 'grab';
+        }
+    }
+
+    document.addEventListener('mousemove', onMouseMove);
+    document.addEventListener('mouseup',   onMouseUp);
+
+    showPackOpening._cleanup = function() {
+        document.removeEventListener('mousemove', onMouseMove);
+        document.removeEventListener('mouseup',   onMouseUp);
+    };
+
+    // Build card slots
+    cards.forEach((card, idx) => {
+        const rarity     = card.rarity || 'Common';
+        const rarityClass = 'r-' + rarity.toLowerCase();
+
+        const slot  = document.createElement('div');
+        slot.className = 'pack-slot';
+        slot.style.animation = `packCardEnter 0.5s cubic-bezier(0.34,1.56,0.64,1) ${idx * 0.13}s both`;
+
+        const inner = document.createElement('div');
+        inner.className = 'pack-slot-inner';
+
+        // Back
+        const back = document.createElement('div');
+        back.className = 'pack-slot-back';
+
+        // Face
+        const face = document.createElement('div');
+        face.className = `pack-slot-face ${rarityClass}`;
+
+        const badge = document.createElement('div');
+        badge.className = 'pack-rarity-badge';
+        badge.textContent = rarity;
+
+        const img = document.createElement('img');
+        img.className = 'pack-card-art';
+        img.src = getImgName(card);
+        img.onerror = function() { this.style.display = 'none'; };
+
+        const nameTag = document.createElement('div');
+        nameTag.className = 'pack-card-name-tag';
+        nameTag.textContent = card.name;
+
+        const line = document.createElement('div');
+        line.className = 'pack-rarity-line';
+
+        face.append(badge, img, nameTag, line);
+        inner.append(back, face);
+        slot.appendChild(inner);
+        row.appendChild(slot);
+
+        slot.addEventListener('mousedown', function(e) {
+            if (slot.classList.contains('revealed')) return;
+            e.preventDefault();
+            dragState = { slot, inner, startY: e.clientY, startX: e.clientX, moved: 0, startTime: Date.now() };
+            inner.style.transition = 'none';
+            slot.style.cursor = 'grabbing';
+        });
+    });
+
+    overlay.style.display = 'flex';
+}
+
+function collectPackCards() {
+    document.getElementById('pack-opening-overlay').style.display = 'none';
+    if (showPackOpening._cleanup) {
+        showPackOpening._cleanup();
+        showPackOpening._cleanup = null;
+    }
+    try { fetch('https://shootout_cardgame/pack_collected', { method: 'POST', body: JSON.stringify({}) }); } catch(e) {}
+}

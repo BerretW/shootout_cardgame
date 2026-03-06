@@ -2,7 +2,12 @@
 // FILE: html/cards.js
 // ==========================================
 
-const CardDB = [
+// CardDB je naplněn daty z Lua (Config.Cards) přes SendNUIMessage při startu hry.
+// Viz client.lua -> start_game / start_singleplayer -> data.cards
+let CardDB = [];
+
+// Interní záložní pole pro případ spuštění mimo FiveM (např. testování v prohlížeči)
+const _CardDB_fallback = [
     // --- LAW ---
     {id: 1, faction: "Law", name: "IRON SHERIFF", type: "Unit", cost: 5, atk: 4, hp: 5, text: "Battlecry: Give other Law units +1/+1"},
     {id: 2, faction: "Law", name: "MARSHAL", type: "Unit", cost: 6, atk: 3, hp: 7, text: "Guardian"},
@@ -21,7 +26,7 @@ const CardDB = [
     {id: 62, faction: "Law", name: "THE BANK", type: "Landmark", cost: 3, atk: 0, hp: 5, text: "End of Turn: 50% chance to gain 1 Grit."},
     {id: 68, faction: "Law", name: "THE GALLOWS", type: "Landmark", cost: 3, atk: 0, hp: 4, text: "Enemy units have -1 Attack."},
     {id: 74, faction: "Law", name: "SHERIFF BADGE", type: "Gear", cost: 2, atk: 0, hp: 0, text: "Give a Unit +1/+3 and Guardian."},
-    {id: 80, faction: "Law", name: "MARSHAL EARP", type: "Hero", cost: 0, atk: 0, hp: 30, text: "Hero Power (2 Grit): Summon a 1/1 Deputy with Guard."},
+    {id: 80, faction: "Law", name: "MARSHAL EARP", type: "Hero", cost: 0, atk: 0, hp: 60, text: "Hero Power (2 Grit): Summon a 1/1 Deputy with Guard."},
     {id: 85, faction: "Law", name: "DEPUTY", type: "Unit", cost: 1, atk: 1, hp: 1, text: "Guardian"}, // Token
 
     // --- OUTLAW ---
@@ -96,8 +101,71 @@ const CardDB = [
     {id: 71, faction: "Neutral", name: "GOLD COIN", type: "Spell", cost: 0, atk: 0, hp: 0, text: "Gain 1 Grit this turn only."},
     {id: 75, faction: "Neutral", name: "WINCHESTER", type: "Gear", cost: 3, atk: 0, hp: 0, text: "Give a Unit +4 Attack."},
     {id: 78, faction: "Saloon", name: "IRON PONCHO", type: "Gear", cost: 2, atk: 0, hp: 0, text: "Give a Unit +5 Health."},
-    {id: 84, faction: "Saloon", name: "DIAMOND JIM", type: "Hero", cost: 0, atk: 0, hp: 25, text: "Hero Power (1 Grit): Add a random 'Coin' to your hand."}
+    {id: 84, faction: "Saloon", name: "DIAMOND JIM", type: "Hero", cost: 0, atk: 0, hp: 25, text: "Hero Power (1 Grit): Add a random 'Coin' to your hand."},
+
+    // === LAW (nové) ===
+    {id: 86, faction: "Law", name: "PINKERTON", type: "Unit", cost: 3, atk: 2, hp: 4, text: "Battlecry: Look at the top 3 cards of your deck."},
+    {id: 87, faction: "Law", name: "JUDGE'S GAVEL", type: "Spell", cost: 3, atk: 0, hp: 0, text: "Destroy a Unit with 3 or less Attack."},
+    {id: 88, faction: "Law", name: "FRONTIER DOC", type: "Unit", cost: 3, atk: 1, hp: 4, text: "Battlecry: Restore 3 Health to your Hero."},
+    {id: 89, faction: "Law", name: "PRISON WAGON", type: "Unit", cost: 4, atk: 2, hp: 6, text: "Guardian. Battlecry: Silence a Unit."},
+    {id: 90, faction: "Law", name: "LAND SEIZURE", type: "Spell", cost: 5, atk: 0, hp: 0, text: "Destroy all enemy Landmarks."},
+    {id: 91, faction: "Law", name: "RANGER CAPTAIN", type: "Unit", cost: 5, atk: 4, hp: 5, text: "Battlecry: Give all other friendly Law units +2 Attack."},
+    {id: 92, faction: "Law", name: "RIOT SHIELD", type: "Gear", cost: 2, atk: 0, hp: 0, text: "Give a Unit +4 Health and Guardian."},
+    {id: 93, faction: "Law", name: "FORT WORTH", type: "Landmark", cost: 4, atk: 0, hp: 7, text: "Your Units cost (1) less."},
+
+    // === OUTLAW (nové) ===
+    {id: 94, faction: "Outlaw", name: "CATTLE RUSTLER", type: "Unit", cost: 2, atk: 3, hp: 1, text: "Ambush. Last Word: Steal 1 Grit from opponent."},
+    {id: 95, faction: "Outlaw", name: "SNAKE EYES", type: "Spell", cost: 2, atk: 0, hp: 0, text: "Deal 3 damage to a Unit. If it dies, draw a card."},
+    {id: 96, faction: "Outlaw", name: "DESPERADO", type: "Unit", cost: 5, atk: 6, hp: 4, text: "Battlecry: Deal 2 damage to all enemy Units."},
+    {id: 97, faction: "Outlaw", name: "SABOTAGE", type: "Spell", cost: 3, atk: 0, hp: 0, text: "Destroy an enemy Landmark."},
+    {id: 98, faction: "Outlaw", name: "BLACK BART", type: "Unit", cost: 7, atk: 5, hp: 7, text: "Battlecry: Steal a random card from opponent's hand."},
+    {id: 99, faction: "Outlaw", name: "HIGHWAYMAN", type: "Unit", cost: 4, atk: 4, hp: 3, text: "Battlecry: Deal 2 damage to the enemy Hero."},
+    {id: 100, faction: "Outlaw", name: "OUTLAW CAMP", type: "Landmark", cost: 3, atk: 0, hp: 5, text: "End of Turn: Give a random Outlaw in your hand +1/+1."},
+    {id: 101, faction: "Outlaw", name: "RUSTY REVOLVER", type: "Gear", cost: 1, atk: 0, hp: 0, text: "Give a Unit +2 Attack."},
+
+    // === WILD (nové) ===
+    {id: 102, faction: "Wild", name: "HAWK RIDER", type: "Unit", cost: 3, atk: 3, hp: 2, text: "Battlecry: Deal 2 damage to a random enemy Unit."},
+    {id: 103, faction: "Wild", name: "STAMPEDE", type: "Spell", cost: 6, atk: 0, hp: 0, text: "Deal 2 damage to all enemy Units. Summon a 3/3 Bull."},
+    {id: 104, faction: "Wild", name: "RIVER SPIRIT", type: "Unit", cost: 4, atk: 2, hp: 6, text: "End of Turn: Restore 2 Health to a damaged friendly Unit."},
+    {id: 105, faction: "Wild", name: "HUNTING GROUND", type: "Landmark", cost: 2, atk: 0, hp: 4, text: "Your Wild units have +1 Attack."},
+    {id: 106, faction: "Wild", name: "PACK ALPHA", type: "Unit", cost: 5, atk: 4, hp: 4, text: "Battlecry: Give all friendly Wolves +2/+2."},
+    {id: 107, faction: "Wild", name: "BADGER", type: "Unit", cost: 2, atk: 2, hp: 3, text: "Can't be targeted by Spells."},
+    {id: 108, faction: "Wild", name: "TOTEM OF WRATH", type: "Gear", cost: 3, atk: 0, hp: 0, text: "Give a Unit +3 Attack and Ambush."},
+    {id: 109, faction: "Wild", name: "BULL", type: "Unit", cost: 3, atk: 3, hp: 3, token: true, text: ""},
+
+    // === MYTHOS (nové) ===
+    {id: 110, faction: "Mythos", name: "WENDIGO", type: "Unit", cost: 4, atk: 5, hp: 3, text: "Ambush. Gains +2 Attack each time any Unit dies."},
+    {id: 111, faction: "Mythos", name: "CURSED GROUND", type: "Landmark", cost: 3, atk: 0, hp: 5, text: "Units that die here can't be resurrected."},
+    {id: 112, faction: "Mythos", name: "SHADOW WALKER", type: "Unit", cost: 3, atk: 2, hp: 3, text: "Stealth. Battlecry: Deal 1 damage to all enemies."},
+    {id: 113, faction: "Mythos", name: "WITCH'S BREW", type: "Spell", cost: 2, atk: 0, hp: 0, text: "Give a Unit +3/+3. At end of turn, destroy it."},
+    {id: 114, faction: "Mythos", name: "POLTERGEIST", type: "Unit", cost: 2, atk: 1, hp: 3, text: "Battlecry: Return a random enemy Unit to their hand."},
+    {id: 115, faction: "Mythos", name: "LICH KING", type: "Unit", cost: 8, atk: 6, hp: 8, text: "Last Word: Return this to your hand with full Health."},
+    {id: 116, faction: "Mythos", name: "SOUL HARVEST", type: "Spell", cost: 4, atk: 0, hp: 0, text: "Destroy all damaged Units. Gain 1 Grit for each destroyed."},
+    {id: 117, faction: "Mythos", name: "BANSHEE", type: "Unit", cost: 3, atk: 1, hp: 3, text: "Last Word: Deal 3 damage to all enemy Units."},
+
+    // === SALOON / NEUTRAL (nové) ===
+    {id: 118, faction: "Saloon", name: "CARD SHARK", type: "Unit", cost: 2, atk: 2, hp: 2, text: "Battlecry: Peek at the top card of your deck."},
+    {id: 119, faction: "Saloon", name: "WHISKEY BOTTLE", type: "Spell", cost: 1, atk: 0, hp: 0, text: "Give a Unit +2 Attack until end of turn."},
+    {id: 120, faction: "Neutral", name: "BOUNTY HUNTER", type: "Unit", cost: 4, atk: 4, hp: 3, text: "Battlecry: Deal 2 damage to a Unit."},
+    {id: 121, faction: "Neutral", name: "PRAIRIE FIRE", type: "Spell", cost: 3, atk: 0, hp: 0, text: "Deal 1 damage to all Units. Repeat 3 times."},
+    {id: 122, faction: "Saloon", name: "CANTEEN", type: "Gear", cost: 2, atk: 0, hp: 0, text: "Give a Unit +2 Health. Draw a card."},
+    {id: 123, faction: "Saloon", name: "UNDERTAKER", type: "Unit", cost: 3, atk: 2, hp: 4, text: "Each time a friendly Unit dies, gain +1 Grit."},
+    {id: 124, faction: "Neutral", name: "CAMPFIRE", type: "Landmark", cost: 2, atk: 0, hp: 3, text: "End of Turn: Restore 1 Health to your Hero."},
+    {id: 125, faction: "Neutral", name: "PONY EXPRESS", type: "Unit", cost: 2, atk: 1, hp: 2, text: "Battlecry: Draw a card. Give it (1) less cost."}
 ];
+
+/**
+ * Naplní CardDB z dat odeslaných z Lua přes SendNUIMessage.
+ * Lua posílá Config.Cards jako objekt { [id] = {...} }, JS ho převede na pole.
+ * Pokud data nepřijdou (testování v prohlížeči), použije se fallback.
+ */
+function initCardDB(luaCards) {
+    if (luaCards && typeof luaCards === "object") {
+        CardDB = Object.values(luaCards);
+    } else {
+        CardDB = _CardDB_fallback;
+    }
+}
 
 /**
  * Hlavní funkce pro parsování logiky karty.
@@ -155,7 +223,7 @@ function getCardLogic(cardData) {
 
             // DEPUTY SQUAD: Battlecry: Summon a copy of this unit.
             if (id === 29) {
-                game.summonUnit(29, "player");
+                game.summonUnit(29, selfCard.owner);
                 return;
             }
 
@@ -167,8 +235,8 @@ function getCardLogic(cardData) {
 
             // WOLF PACK: Battlecry: Summon two 2/1 Wolves.
             if (id === 12) {
-                game.summonUnit(72, "player");
-                game.summonUnit(72, "player");
+                game.summonUnit(72, selfCard.owner);
+                game.summonUnit(72, selfCard.owner);
                 return;
             }
 
@@ -253,6 +321,150 @@ function getCardLogic(cardData) {
                 return;
             }
 
+            // PRAIRIE FIRE: Deal 1 damage to all Units. Repeat 3 times.
+            if (id === 121) {
+                for (let i = 0; i < 3; i++) {
+                    game.damageAll(1, false);
+                }
+                return;
+            }
+
+            // === Nové karty (86–125) ===
+
+            // PINKERTON (86): Battlecry: Look at top 3 cards (simplified: draw 1)
+            if (id === 86) { game.drawCard("player", 1); return; }
+
+            // JUDGE'S GAVEL (87): Destroy a Unit with 3 or less Attack.
+            if (id === 87) {
+                if (target && target.type === "Unit" && target.atk <= 3) game.destroyUnit(target);
+                return;
+            }
+
+            // FRONTIER DOC (88): Battlecry: Restore 3 Health to your Hero.
+            if (id === 88) { game.healHero("player", 3); return; }
+
+            // PRISON WAGON (89): Battlecry: Silence a Unit. [Guardian handled by keyword]
+            if (id === 89) { if (target) game.silenceUnit(target); return; }
+
+            // LAND SEIZURE (90): Destroy all enemy Landmarks.
+            if (id === 90) {
+                game.enemyBoard.filter(u => u.type === "Landmark").forEach(u => game.destroyUnit(u));
+                return;
+            }
+
+            // RANGER CAPTAIN (91): Give all other friendly Law units +2 Attack.
+            if (id === 91) {
+                game.board.filter(u => u.faction === "Law" && u !== selfCard).forEach(u => {
+                    u.atk += 2; u.baseAtk = u.atk;
+                });
+                return;
+            }
+
+            // CATTLE RUSTLER (94): Ambush – no Battlecry, handled in onDeath.
+
+            // SNAKE EYES (95): Deal 3 damage to a Unit. If it dies, draw a card.
+            if (id === 95) {
+                if (target && typeof target !== "string") {
+                    game.dealDamage(target, 3);
+                    if (target.hp <= 0) game.drawCard("player", 1);
+                }
+                return;
+            }
+
+            // DESPERADO (96): Battlecry: Deal 2 damage to all enemy Units.
+            if (id === 96) { game.damageAllEnemies(2); return; }
+
+            // SABOTAGE (97): Destroy an enemy Landmark.
+            if (id === 97) {
+                if (target && target.type === "Landmark") game.destroyUnit(target);
+                return;
+            }
+
+            // BLACK BART (98): Steal a random card (simplified: draw 1).
+            if (id === 98) { game.drawCard("player", 1); return; }
+
+            // HIGHWAYMAN (99): Battlecry: Deal 2 damage to the enemy Hero.
+            if (id === 99) { game.damageHero("enemy", 2); return; }
+
+            // HAWK RIDER (102): Battlecry: Deal 2 damage to a random enemy Unit.
+            if (id === 102) { game.damageRandomEnemy(2); return; }
+
+            // STAMPEDE (103): Deal 2 damage to all enemy Units. Summon a 3/3 Bull.
+            if (id === 103) {
+                game.damageAllEnemies(2);
+                game.summonUnit(109, selfCard.owner);
+                return;
+            }
+
+            // PACK ALPHA (106): Give all friendly Wolves +2/+2.
+            if (id === 106) {
+                game.board.filter(u => u.id === 72).forEach(u => {
+                    u.atk += 2; u.hp += 2; u.maxHp += 2;
+                });
+                return;
+            }
+
+            // SHADOW WALKER (112): Battlecry: Deal 1 damage to all enemies.
+            if (id === 112) { game.damageAllEnemies(1); return; }
+
+            // WITCH'S BREW (113): Give a Unit +3/+3.
+            if (id === 113) {
+                if (target && typeof target !== "string") {
+                    target.atk += 3; target.hp += 3; target.maxHp += 3;
+                }
+                return;
+            }
+
+            // POLTERGEIST (114): Battlecry: Return a random enemy Unit to their hand.
+            if (id === 114) {
+                let pool = game.enemyBoard.filter(u => u.type === "Unit");
+                if (pool.length > 0) {
+                    let t = pool[Math.floor(Math.random() * pool.length)];
+                    game.bounceUnit(t, t.owner);
+                }
+                return;
+            }
+
+            // SOUL HARVEST (116): Destroy all damaged Units. Gain 1 Grit per destroyed.
+            if (id === 116) {
+                let damaged = [
+                    ...game.board.filter(u => u.hp < u.maxHp),
+                    ...game.enemyBoard.filter(u => u.hp < u.maxHp)
+                ];
+                damaged.forEach(u => game.destroyUnit(u));
+                game.addGrit("player", damaged.length);
+                return;
+            }
+
+            // CARD SHARK (118): Battlecry: Peek at top card (simplified: draw 1).
+            if (id === 118) { game.drawCard("player", 1); return; }
+
+            // WHISKEY BOTTLE (119): Give a Unit +2 Attack.
+            if (id === 119) {
+                if (target && typeof target !== "string") {
+                    target.atk += 2; target.baseAtk = target.atk;
+                }
+                return;
+            }
+
+            // BOUNTY HUNTER (120): Battlecry: Deal 2 damage to a Unit.
+            if (id === 120) {
+                if (target && typeof target !== "string") game.dealDamage(target, 2);
+                return;
+            }
+
+            // CANTEEN (122): Gear – Give a Unit +2 Health. Draw a card.
+            if (id === 122) {
+                if (target && typeof target !== "string") {
+                    target.hp += 2; target.maxHp += 2;
+                }
+                game.drawCard("player", 1);
+                return;
+            }
+
+            // PONY EXPRESS (125): Battlecry: Draw a card.
+            if (id === 125) { game.drawCard("player", 1); return; }
+
             // === Generická logika ===
 
             // UFO: Destroy ALL Units.
@@ -331,6 +543,20 @@ function getCardLogic(cardData) {
                 if (text.includes("ambush")   && !target.keywords.includes("Ambush"))   target.keywords.push("Ambush");
             }
 
+            // Discard (univerzální)
+            // Podporuje: "Discard your hand", "Discard X cards",
+            //            "Discard X Tokens/Spells/Units/Gear/[jméno karty]"
+            if (text.includes("discard")) {
+                if (text.includes("discard your hand")) {
+                    game.discardAllCards("player");
+                } else {
+                    const discardMatch = text.match(/discard (\d+) (\w+)/);
+                    if (discardMatch) {
+                        game.discardByType("player", parseInt(discardMatch[1]), discardMatch[2]);
+                    }
+                }
+            }
+
             // Grit (obecný)
             if (text.includes("gain") && text.includes("grit")) {
                 const gritMatch = text.match(/gain (\d+) grit/);
@@ -357,6 +583,12 @@ function getCardLogic(cardData) {
             if (id === 18) { return; }
             // OLD GRAVEYARD: Return dying units to hand (handled in script.js checkDeaths)
             if (id === 67) { return; }
+            // CATTLE RUSTLER (94): Steal 1 Grit (simplified: gain 1).
+            if (id === 94) { game.addGrit("player", 1); return; }
+            // LICH KING (115): Return to hand with full Health.
+            if (id === 115) { game.addCardToHand("player", 115); return; }
+            // BANSHEE (117): Deal 3 damage to all enemy Units.
+            if (id === 117) { game.damageAllEnemies(3); return; }
             // Obecný
             const drawMatch = text.match(/draw (\d+)/);
             if (drawMatch) game.drawCard("player", parseInt(drawMatch[1]));
@@ -378,7 +610,7 @@ function getCardLogic(cardData) {
             }
             // DEVILS CAVE: Summon a 1/1 Bat.
             if (id === 57) {
-                game.summonUnit(73, "player");
+                game.summonUnit(73, selfCard.owner);
                 return;
             }
             // GHOST TRAIN: Dies at end of turn.
@@ -397,6 +629,26 @@ function getCardLogic(cardData) {
                 if (Math.random() >= 0.5) game.addGrit("player", 1);
                 return;
             }
+            // OUTLAW CAMP (100): Give a random Outlaw in hand +1/+1.
+            if (id === 100) {
+                let outlaws = playerHand.filter(c => c.faction === "Outlaw");
+                if (outlaws.length > 0) {
+                    let t = outlaws[Math.floor(Math.random() * outlaws.length)];
+                    t.atk += 1; t.hp += 1; t.maxHp += 1;
+                }
+                return;
+            }
+            // RIVER SPIRIT (104): Restore 2 Health to a damaged friendly Unit.
+            if (id === 104) {
+                let damaged = game.board.filter(u => u !== selfCard && u.hp < u.maxHp);
+                if (damaged.length > 0) {
+                    let t = damaged[Math.floor(Math.random() * damaged.length)];
+                    t.hp = Math.min(t.maxHp, t.hp + 2);
+                }
+                return;
+            }
+            // CAMPFIRE (124): Restore 1 Health to your Hero.
+            if (id === 124) { game.healHero("player", 1); return; }
             // Obecný heal
             if (text.includes("heal") && id !== 21 && id !== 63) {
                 game.board.forEach(u => u.hp = Math.min(u.maxHp, u.hp + 1));

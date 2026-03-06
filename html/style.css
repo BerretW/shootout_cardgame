@@ -10,6 +10,69 @@ body {
     background-color: transparent;
 }
 
+/* --- SOUND BUTTONS --- */
+#sound-btn, #sound-settings-btn {
+    position: fixed; top: 10px; right: 10px;
+    background: rgba(10, 5, 2, 0.85); color: #f4e4bc;
+    border: 1px solid #5d4037; border-radius: 6px;
+    font-size: 20px; width: 36px; height: 36px;
+    cursor: pointer; z-index: 3000; line-height: 1;
+    transition: border-color 0.2s, background 0.2s;
+    display: flex; align-items: center; justify-content: center;
+}
+#sound-settings-btn { right: 52px; font-size: 16px; }
+#sound-btn:hover, #sound-settings-btn:hover { border-color: #d4af37; background: rgba(30, 15, 5, 0.95); }
+
+/* --- SOUND SETTINGS MODAL --- */
+#sound-settings-modal {
+    position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+    background: rgba(0,0,0,0.75); z-index: 4500;
+    display: flex; align-items: center; justify-content: center;
+}
+.sound-settings-content {
+    background: #1a0e09; border: 2px solid #d4af37;
+    border-radius: 12px; width: 400px; padding: 0 0 16px 0;
+    display: flex; flex-direction: column; gap: 0;
+    box-shadow: 0 0 30px rgba(0,0,0,0.8);
+}
+.sound-settings-header {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 12px 16px; border-bottom: 1px solid #3e2723;
+    font-family: 'Rye', serif; font-size: 15px; color: #d4af37;
+}
+.sound-mute-toggle {
+    margin: 12px 16px 8px; padding: 8px 16px;
+    background: #3e2723; border: 1px solid #d4af37;
+    color: #f4e4bc; font-family: 'Rye', serif; font-size: 14px;
+    cursor: pointer; border-radius: 6px; transition: background 0.2s;
+}
+.sound-mute-toggle:hover { background: #5d4037; }
+.sound-settings-list {
+    display: flex; flex-direction: column; gap: 0;
+    padding: 0 16px; overflow-y: auto; max-height: 50vh;
+}
+.sound-row {
+    display: flex; align-items: center; gap: 10px;
+    padding: 7px 0; border-bottom: 1px solid #2a1a10;
+    font-family: sans-serif; font-size: 13px; color: #ddd;
+}
+.sound-row span:first-child { flex: 1; }
+.sound-upload-btn {
+    padding: 4px 10px; background: #3e2723; color: #ccc;
+    border: 1px solid #5d4037; border-radius: 4px;
+    cursor: pointer; font-size: 12px; white-space: nowrap;
+    transition: border-color 0.2s;
+}
+.sound-upload-btn:hover { border-color: #d4af37; color: #f4e4bc; }
+.sound-upload-btn input[type="file"] { display: none; }
+.sound-status {
+    min-width: 40px; font-size: 11px; color: #888; text-align: right;
+}
+.sound-settings-hint {
+    margin: 8px 16px 0; font-size: 11px; color: #555;
+    font-family: sans-serif; font-style: italic;
+}
+
 /* --- GAME CONTAINER --- */
 #game-container {
     position: absolute;
@@ -177,6 +240,125 @@ h1, h2, h3, div, span { text-shadow: 2px 2px 4px #000; }
     text-shadow: 1px 1px 3px #000;
 }
 
+/* Zoom karty – pravé tlačítko myši */
+#card-zoom {
+    position: fixed;
+    right: 16px;
+    top: 50%;
+    transform: translateY(-50%);
+    z-index: 9999;
+    pointer-events: none;
+    animation: cardZoomIn 0.18s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+#card-zoom-inner {
+    display: flex;
+    flex-direction: row;
+    align-items: flex-start;
+    gap: 0;
+    filter: drop-shadow(0 8px 32px rgba(0,0,0,0.85));
+}
+
+#card-zoom-img {
+    width: 230px;
+    height: 345px;
+    object-fit: cover;
+    border-radius: 10px 0 0 10px;
+    border: 2px solid rgba(212,175,55,0.6);
+    border-right: none;
+    display: block;
+}
+
+#card-zoom-info {
+    width: 180px;
+    background: linear-gradient(160deg, #1a0e06 0%, #0d0602 100%);
+    border: 2px solid rgba(212,175,55,0.6);
+    border-left: 1px solid rgba(212,175,55,0.25);
+    border-radius: 0 10px 10px 0;
+    padding: 14px 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    height: 341px;
+    box-sizing: border-box;
+    overflow: hidden;
+}
+
+#cz-name {
+    font-family: 'Rye', serif;
+    font-size: 14px;
+    color: #d4af37;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    line-height: 1.2;
+}
+
+#cz-meta {
+    font-size: 10px;
+    color: #8a7560;
+    font-family: sans-serif;
+}
+
+#cz-cost {
+    font-size: 12px;
+    color: #00bcd4;
+    font-family: sans-serif;
+    font-weight: bold;
+}
+
+#cz-stats {
+    font-size: 13px;
+    color: #eee;
+    font-family: sans-serif;
+}
+
+#cz-keywords {
+    font-size: 10px;
+    color: #d4af37;
+    font-family: sans-serif;
+    font-style: italic;
+    min-height: 14px;
+}
+
+#cz-divider {
+    height: 1px;
+    background: rgba(212,175,55,0.2);
+    margin: 2px 0;
+}
+
+#cz-text {
+    font-size: 11px;
+    color: #ccc;
+    font-family: sans-serif;
+    line-height: 1.5;
+    flex: 1;
+    overflow: hidden;
+}
+
+#cz-gear {
+    font-size: 10px;
+    color: #a0916e;
+    font-family: sans-serif;
+    margin-top: 4px;
+}
+
+#cz-gear .cz-gear-item {
+    border-top: 1px solid rgba(212,175,55,0.15);
+    padding-top: 4px;
+    margin-top: 4px;
+}
+
+#cz-gear .cz-gear-name {
+    color: #d4af37;
+    font-weight: bold;
+    font-size: 10px;
+}
+
+@keyframes cardZoomIn {
+    from { opacity: 0; transform: translateY(-50%) translateX(30px) scale(0.9); }
+    to   { opacity: 1; transform: translateY(-50%) translateX(0)    scale(1); }
+}
+
 /* Tooltip panel – boční nápověda při hoveru */
 #card-tooltip {
     position: fixed;
@@ -290,27 +472,31 @@ h1, h2, h3, div, span { text-shadow: 2px 2px 4px #000; }
     100% { filter: brightness(1); }
 }
 
-/* Historie tahů */
+/* ==========================================
+   UPDATED SECTION: History Panel
+   ========================================== */
 #history-panel {
     position: fixed;
-    right: 14px;
-    top: 50%;
-    transform: translateY(-50%);
-    width: 180px;
-    max-height: 60vh;
+    left: 20px; /* Přesunuto z prava doleva */
+    top: 15%;   /* Posunuto nahoru, aby to nebylo v centru */
+    transform: none; /* Zrušeno centrování translateY */
+    width: 200px;
+    max-height: 50vh;
     background: rgba(8, 4, 2, 0.93);
     border: 2px solid #d4af37;
     border-radius: 10px;
     padding: 8px 10px;
     z-index: 2500;
-    pointer-events: none;
+    pointer-events: auto; /* Povolit myš pro tooltipy */
     overflow: hidden;
-    display: flex;
+    display: none; /* Výchozí stav: skryto */
     flex-direction: column;
+    box-shadow: 5px 5px 15px rgba(0,0,0,0.5);
 }
+
 #history-title {
     font-family: 'Rye', serif;
-    font-size: 11px;
+    font-size: 12px;
     color: #d4af37;
     text-align: center;
     border-bottom: 1px solid #3e2723;
@@ -318,23 +504,43 @@ h1, h2, h3, div, span { text-shadow: 2px 2px 4px #000; }
     margin-bottom: 5px;
     letter-spacing: 2px;
 }
+
 #history-list {
-    overflow: hidden;
+    overflow-y: auto; /* Povolit scrollování pokud je toho moc */
     display: flex;
     flex-direction: column;
     gap: 4px;
+    padding-right: 5px;
 }
+
+/* Scrollbar styling pro historii */
+#history-list::-webkit-scrollbar { width: 4px; }
+#history-list::-webkit-scrollbar-thumb { background: #5d4037; border-radius: 2px; }
+
 .history-entry {
-    font-size: 10px;
+    font-size: 11px;
     color: #ddd;
     font-family: sans-serif;
-    line-height: 1.4;
+    line-height: 1.5;
     border-bottom: 1px solid #2a1a10;
     padding-bottom: 3px;
 }
-.hist-you { color: #76ff03; font-style: normal; }
-.hist-opp { color: #ff6b6b; font-style: normal; }
 
+.hist-you { color: #76ff03; font-weight: bold; }
+.hist-opp { color: #ff6b6b; font-weight: bold; }
+
+/* Styl pro interaktivní název karty v historii */
+.hist-card-name {
+    color: #ffd700;
+    text-decoration: underline dotted #888;
+    cursor: help;
+    font-weight: bold;
+    font-family: 'Rye', serif;
+}
+.hist-card-name:hover {
+    color: #fff;
+    text-decoration: underline solid #fff;
+}
 /* Back of card */
 .card-back {
     width: 140px; height: 210px;
@@ -420,3 +626,198 @@ h1, h2, h3, div, span { text-shadow: 2px 2px 4px #000; }
 
 /* Protivníkův stůl – pod rukou, v dolní části opponent-area */
 #opp-board { bottom: 10px; }
+
+/* ==========================================
+   PACK OPENING
+   ========================================== */
+
+#pack-opening-overlay {
+    position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+    background: radial-gradient(ellipse at center, #0d0600 0%, #000 100%);
+    z-index: 6000;
+    display: flex; align-items: center; justify-content: center;
+}
+
+#pack-opening-inner {
+    display: flex; flex-direction: column; align-items: center; gap: 22px;
+    padding: 30px;
+}
+
+#pack-opening-title {
+    font-family: 'Rye', serif;
+    font-size: 38px; color: #d4af37; letter-spacing: 6px;
+    animation: packTitleGlow 2s ease-in-out infinite alternate;
+}
+@keyframes packTitleGlow {
+    from { text-shadow: 0 0 20px rgba(212,175,55,0.4), 2px 2px 6px #000; }
+    to   { text-shadow: 0 0 50px rgba(212,175,55,1),   2px 2px 6px #000; }
+}
+
+#pack-opening-hint {
+    font-family: sans-serif; font-size: 13px;
+    color: #666; letter-spacing: 1px;
+}
+
+#pack-cards-row {
+    display: flex; gap: 18px;
+    align-items: flex-end; justify-content: center;
+    min-height: 220px;
+}
+
+/* === Card slot wrapper === */
+.pack-slot {
+    position: relative; width: 130px; height: 200px;
+    perspective: 900px;
+    cursor: grab; flex-shrink: 0;
+}
+.pack-slot.revealed { cursor: default; }
+
+.pack-slot-inner {
+    width: 100%; height: 100%;
+    position: relative;
+    transform-style: preserve-3d;
+    will-change: transform;
+}
+
+/* Flip animation triggered by .revealed */
+.pack-slot.revealed .pack-slot-inner {
+    animation: packFlipReveal 0.65s cubic-bezier(0.4, 0.1, 0.2, 1) forwards;
+}
+@keyframes packFlipReveal {
+    0%   { transform: rotateY(0deg)   scale(1)    translateY(0); }
+    45%  { transform: rotateY(90deg)  scale(1.1)  translateY(-18px); }
+    100% { transform: rotateY(180deg) scale(1)    translateY(0); }
+}
+
+/* Back face */
+.pack-slot-back {
+    position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+    backface-visibility: hidden;
+    border-radius: 10px;
+    background: repeating-linear-gradient(45deg, #4a2c0c, #4a2c0c 12px, #2e1a06 12px, #2e1a06 24px);
+    border: 3px solid #d4af37;
+    box-shadow: 0 0 20px rgba(0,0,0,0.9), inset 0 0 30px rgba(212,175,55,0.04);
+    display: flex; align-items: center; justify-content: center;
+}
+.pack-slot-back::before {
+    content: '✦';
+    font-size: 44px; color: rgba(212,175,55,0.2);
+}
+
+/* Front face */
+.pack-slot-face {
+    position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+    backface-visibility: hidden;
+    border-radius: 10px;
+    transform: rotateY(180deg);
+    overflow: hidden;
+    border: 3px solid #1a100e;
+    background: #2e1e19;
+}
+
+/* === Rarity variants === */
+.pack-slot-face.r-common     { border-color: #757575; box-shadow: 0 0 8px  rgba(117,117,117,0.4); background: linear-gradient(160deg,#2a2a2a,#181818); }
+.pack-slot-face.r-uncommon   { border-color: #43a047; box-shadow: 0 0 14px rgba(67,160,71,0.6);   background: linear-gradient(160deg,#1a2e1a,#0a140a); }
+.pack-slot-face.r-rare       { border-color: #1e88e5; box-shadow: 0 0 22px rgba(30,136,229,0.7);  background: linear-gradient(160deg,#0a1a2e,#060d1a); }
+.pack-slot-face.r-epic       { border-color: #8e24aa; box-shadow: 0 0 28px rgba(142,36,170,0.8);  background: linear-gradient(160deg,#1e0a2e,#0d0614); }
+.pack-slot-face.r-legendary  { border-color: #ff8f00; background: linear-gradient(160deg,#2e1a00,#140c00);
+    animation: legendaryCardGlow 1.5s ease-in-out infinite alternate; }
+@keyframes legendaryCardGlow {
+    from { box-shadow: 0 0 22px rgba(255,143,0,0.7), 0 0 45px rgba(255,143,0,0.2); }
+    to   { box-shadow: 0 0 45px rgba(255,143,0,1),   0 0 90px rgba(255,143,0,0.5); }
+}
+
+/* Card art image */
+.pack-card-art {
+    width: 100%; height: 100%; object-fit: cover; display: block; opacity: 0.92;
+}
+
+/* Rarity badge (top center) */
+.pack-rarity-badge {
+    position: absolute; top: 5px; left: 50%; transform: translateX(-50%);
+    font-family: 'Rye', serif; font-size: 7px; letter-spacing: 1px;
+    text-transform: uppercase; padding: 2px 7px; border-radius: 3px;
+    white-space: nowrap; z-index: 5; pointer-events: none;
+}
+.pack-slot-face.r-common   .pack-rarity-badge { background: #424242; color: #bdbdbd; }
+.pack-slot-face.r-uncommon .pack-rarity-badge { background: #1b5e20; color: #a5d6a7; }
+.pack-slot-face.r-rare     .pack-rarity-badge { background: #0d47a1; color: #90caf9; }
+.pack-slot-face.r-epic     .pack-rarity-badge { background: #4a148c; color: #e1bee7; }
+.pack-slot-face.r-legendary .pack-rarity-badge {
+    background: #e65100; color: #ffe0b2;
+    animation: legendaryBadgePulse 1s ease-in-out infinite;
+}
+@keyframes legendaryBadgePulse {
+    0%,100% { box-shadow: 0 0 4px rgba(255,152,0,0.4); }
+    50%      { box-shadow: 0 0 14px rgba(255,152,0,1); }
+}
+
+/* Card name tag (bottom) */
+.pack-card-name-tag {
+    position: absolute; bottom: 0; left: 0; right: 0;
+    background: linear-gradient(transparent, rgba(0,0,0,0.9));
+    color: #f4e4bc; font-family: 'Rye', serif;
+    font-size: 8px; text-align: center;
+    padding: 12px 4px 4px; pointer-events: none; z-index: 5;
+    letter-spacing: 0.5px;
+}
+
+/* Rarity color line at very bottom */
+.pack-rarity-line {
+    position: absolute; bottom: 0; left: 0; right: 0;
+    height: 3px; z-index: 6; pointer-events: none;
+    border-radius: 0 0 7px 7px;
+}
+.pack-slot-face.r-common   .pack-rarity-line { background: #757575; }
+.pack-slot-face.r-uncommon .pack-rarity-line { background: #43a047; }
+.pack-slot-face.r-rare     .pack-rarity-line { background: #1e88e5; }
+.pack-slot-face.r-epic     .pack-rarity-line { background: #8e24aa; }
+.pack-slot-face.r-legendary .pack-rarity-line {
+    background: linear-gradient(90deg, #ff8f00, #ffe082, #ff8f00);
+    animation: legendaryLineShift 2s linear infinite;
+    background-size: 200% 100%;
+}
+@keyframes legendaryLineShift {
+    0%   { background-position: 0% 0; }
+    100% { background-position: 200% 0; }
+}
+
+/* Hover on unrevealed back */
+.pack-slot:not(.revealed):hover .pack-slot-back {
+    border-color: #ffe082;
+    box-shadow: 0 0 30px rgba(212,175,55,0.6), inset 0 0 20px rgba(212,175,55,0.08);
+}
+.pack-slot:not(.revealed):hover {
+    filter: brightness(1.15);
+}
+
+/* Flash on reveal */
+.pack-slot.just-revealed .pack-slot-face {
+    animation: revealFlash 0.45s ease forwards;
+}
+@keyframes revealFlash {
+    0%   { filter: brightness(1); }
+    28%  { filter: brightness(3.5) saturate(0.2); }
+    100% { filter: brightness(1); }
+}
+
+/* Entrance stagger animation */
+@keyframes packCardEnter {
+    from { opacity: 0; transform: translateY(90px) scale(0.65); }
+    to   { opacity: 1; transform: translateY(0)    scale(1); }
+}
+
+/* Collect button */
+#pack-collect-btn {
+    padding: 13px 55px; font-size: 20px; font-family: 'Rye', serif;
+    background: #3e2723; color: #d4af37;
+    border: 2px solid #d4af37; border-radius: 6px;
+    cursor: pointer; letter-spacing: 2px;
+    transition: background 0.2s, transform 0.15s;
+    animation: packBtnAppear 0.4s ease both;
+}
+#pack-collect-btn:hover { background: #d4af37; color: #1a0a00; transform: scale(1.06); }
+@keyframes packBtnAppear {
+    from { opacity: 0; transform: translateY(16px) scale(0.9); }
+    to   { opacity: 1; transform: translateY(0)    scale(1); }
+}

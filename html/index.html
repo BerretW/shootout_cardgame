@@ -10,8 +10,52 @@
 </head>
 <body>
 
+    <!-- Tlačítko zvuku -->
+    <button id="sound-btn" onclick="toggleMute()" title="Zapnout/vypnout zvuk">🔊</button>
+    <button id="sound-settings-btn" onclick="openSoundSettings()" title="Nastavení zvuků">⚙</button>
+
+    <!-- Modal nastavení zvuků -->
+    <div id="sound-settings-modal" style="display:none;" onclick="if(event.target===this)closeSoundSettings()">
+        <div class="sound-settings-content">
+            <div class="sound-settings-header">
+                <span>NASTAVENI ZVUKU</span>
+                <button class="grave-close-btn" onclick="closeSoundSettings()">✕</button>
+            </div>
+            <button id="sound-settings-mute-btn" class="sound-mute-toggle" onclick="toggleMute()">🔊 Zvuk zapnut</button>
+            <div class="sound-settings-list">
+                <div class="sound-row"><span>Přejetí myší</span><label class="sound-upload-btn">Nahrát<input type="file" accept="audio/*" onchange="handleSoundUpload('hover',this)"></label><span class="sound-status" id="sound-status-hover">výchozí</span></div>
+                <div class="sound-row"><span>Zoom karty</span><label class="sound-upload-btn">Nahrát<input type="file" accept="audio/*" onchange="handleSoundUpload('zoom',this)"></label><span class="sound-status" id="sound-status-zoom">výchozí</span></div>
+                <div class="sound-row"><span>Zahrání karty</span><label class="sound-upload-btn">Nahrát<input type="file" accept="audio/*" onchange="handleSoundUpload('play',this)"></label><span class="sound-status" id="sound-status-play">výchozí</span></div>
+                <div class="sound-row"><span>Útok</span><label class="sound-upload-btn">Nahrát<input type="file" accept="audio/*" onchange="handleSoundUpload('attack',this)"></label><span class="sound-status" id="sound-status-attack">výchozí</span></div>
+                <div class="sound-row"><span>Smrt jednotky</span><label class="sound-upload-btn">Nahrát<input type="file" accept="audio/*" onchange="handleSoundUpload('death',this)"></label><span class="sound-status" id="sound-status-death">výchozí</span></div>
+                <div class="sound-row"><span>Konec tahu</span><label class="sound-upload-btn">Nahrát<input type="file" accept="audio/*" onchange="handleSoundUpload('endTurn',this)"></label><span class="sound-status" id="sound-status-endTurn">výchozí</span></div>
+                <div class="sound-row"><span>Líznutí karty</span><label class="sound-upload-btn">Nahrát<input type="file" accept="audio/*" onchange="handleSoundUpload('draw',this)"></label><span class="sound-status" id="sound-status-draw">výchozí</span></div>
+                <div class="sound-row"><span>Vítězství</span><label class="sound-upload-btn">Nahrát<input type="file" accept="audio/*" onchange="handleSoundUpload('victory',this)"></label><span class="sound-status" id="sound-status-victory">výchozí</span></div>
+                <div class="sound-row"><span>Prohra</span><label class="sound-upload-btn">Nahrát<input type="file" accept="audio/*" onchange="handleSoundUpload('defeat',this)"></label><span class="sound-status" id="sound-status-defeat">výchozí</span></div>
+            </div>
+            <p class="sound-settings-hint">Podporované formáty: MP3, WAV, OGG</p>
+        </div>
+    </div>
+
     <!-- Notifikace (náhrada za alert) -->
     <div id="game-notification" style="display:none;"></div>
+
+    <!-- Zoom karty (pravé tlačítko myši) -->
+    <div id="card-zoom" style="display:none;">
+        <div id="card-zoom-inner">
+            <img id="card-zoom-img" src="" alt="">
+            <div id="card-zoom-info">
+                <div id="cz-name"></div>
+                <div id="cz-meta"></div>
+                <div id="cz-cost"></div>
+                <div id="cz-stats"></div>
+                <div id="cz-keywords"></div>
+                <div id="cz-divider"></div>
+                <div id="cz-text"></div>
+                <div id="cz-gear"></div>
+            </div>
+        </div>
+    </div>
 
     <!-- Tooltip nápověda ke kartám -->
     <div id="card-tooltip" style="display:none;">
@@ -103,6 +147,16 @@
     <div id="history-panel">
         <div id="history-title">HISTORIE</div>
         <div id="history-list"></div>
+    </div>
+
+    <!-- Pack Opening Overlay -->
+    <div id="pack-opening-overlay" style="display:none;">
+        <div id="pack-opening-inner">
+            <div id="pack-opening-title">PACK OPENED!</div>
+            <div id="pack-opening-hint">Potáhni nebo klikni na každou kartu</div>
+            <div id="pack-cards-row"></div>
+            <button id="pack-collect-btn" style="display:none;" onclick="collectPackCards()">VZÍT KARTY</button>
+        </div>
     </div>
 
     <script src="cards.js"></script>
