@@ -139,6 +139,9 @@ Config.Cards = {
     [124]= { id = 124,faction = "Neutral", name = "CAMPFIRE",       type = "Landmark", cost = 2, atk = 0, hp = 3,  rarity = "Common",    text = "End of Turn: Restore 1 Health to your Hero." },
     [125]= { id = 125,faction = "Neutral", name = "PONY EXPRESS",   type = "Unit",     cost = 2, atk = 1, hp = 2,  rarity = "Common",    text = "Battlecry: Draw a card. Give it (1) less cost." },
 
+    -- === TOKENY (Epic Heroes) ===
+    [131]= { id = 131,faction = "Wild",    name = "SPIRIT WOLF",    type = "Unit",     cost = 0, atk = 3, hp = 3,  rarity = "Common",    token = true, text = "Guardian" },
+
     -- === EPIC HEROES ===
     [126]= { id = 126,faction = "Law",     name = "JUDGE HOLLIDAY", type = "Hero",     cost = 0, atk = 0, hp = 25, rarity = "Epic",      text = "Hero Power (2 Grit): Give a friendly Unit +2/+2 and Immune this turn." },
     [127]= { id = 127,faction = "Outlaw",  name = "JESSE JAMES",    type = "Hero",     cost = 0, atk = 0, hp = 20, rarity = "Epic",      text = "Hero Power (1 Grit): Deal 1 damage to a random enemy for each Outlaw you control." },

@@ -26,7 +26,7 @@ const _CardDB_fallback = [
     {id: 62, faction: "Law", name: "THE BANK", type: "Landmark", cost: 3, atk: 0, hp: 5, text: "End of Turn: 50% chance to gain 1 Grit."},
     {id: 68, faction: "Law", name: "THE GALLOWS", type: "Landmark", cost: 3, atk: 0, hp: 4, text: "Enemy units have -1 Attack."},
     {id: 74, faction: "Law", name: "SHERIFF BADGE", type: "Gear", cost: 2, atk: 0, hp: 0, text: "Give a Unit +1/+3 and Guardian."},
-    {id: 80, faction: "Law", name: "MARSHAL EARP", type: "Hero", cost: 0, atk: 0, hp: 60, text: "Hero Power (2 Grit): Summon a 1/1 Deputy with Guard."},
+    {id: 80, faction: "Law", name: "MARSHAL EARP", type: "Hero", cost: 0, atk: 0, hp: 30, text: "Hero Power (2 Grit): Summon a 1/1 Deputy with Guard."},
     {id: 85, faction: "Law", name: "DEPUTY", type: "Unit", cost: 1, atk: 1, hp: 1, text: "Guardian"}, // Token
 
     // --- OUTLAW ---
@@ -151,7 +151,17 @@ const _CardDB_fallback = [
     {id: 122, faction: "Saloon", name: "CANTEEN", type: "Gear", cost: 2, atk: 0, hp: 0, text: "Give a Unit +2 Health. Draw a card."},
     {id: 123, faction: "Saloon", name: "UNDERTAKER", type: "Unit", cost: 3, atk: 2, hp: 4, text: "Each time a friendly Unit dies, gain +1 Grit."},
     {id: 124, faction: "Neutral", name: "CAMPFIRE", type: "Landmark", cost: 2, atk: 0, hp: 3, text: "End of Turn: Restore 1 Health to your Hero."},
-    {id: 125, faction: "Neutral", name: "PONY EXPRESS", type: "Unit", cost: 2, atk: 1, hp: 2, text: "Battlecry: Draw a card. Give it (1) less cost."}
+    {id: 125, faction: "Neutral", name: "PONY EXPRESS", type: "Unit", cost: 2, atk: 1, hp: 2, text: "Battlecry: Draw a card. Give it (1) less cost."},
+
+    // === TOKENY (Epic Heroes) ===
+    {id: 131, faction: "Wild", name: "SPIRIT WOLF", type: "Unit", cost: 0, atk: 3, hp: 3, token: true, text: "Guardian"},
+
+    // === EPIC HEROES ===
+    {id: 126, faction: "Law",    name: "JUDGE HOLLIDAY", type: "Hero", cost: 0, atk: 0, hp: 25, text: "Hero Power (2 Grit): Give a friendly Unit +2/+2 and Immune this turn."},
+    {id: 127, faction: "Outlaw", name: "JESSE JAMES",    type: "Hero", cost: 0, atk: 0, hp: 20, text: "Hero Power (1 Grit): Deal 1 damage to a random enemy for each Outlaw you control."},
+    {id: 128, faction: "Wild",   name: "THUNDERHAWK",    type: "Hero", cost: 0, atk: 0, hp: 28, text: "Hero Power (3 Grit): Summon a 3/3 Spirit Wolf with Guardian."},
+    {id: 129, faction: "Mythos", name: "THE PALE RIDER", type: "Hero", cost: 0, atk: 0, hp: 22, text: "Hero Power (2 Grit): Give a Unit Lethal. If it already has Lethal, destroy it instead."},
+    {id: 130, faction: "Saloon", name: "BIG NOSE KATE",  type: "Hero", cost: 0, atk: 0, hp: 25, text: "Hero Power (2 Grit): Draw a card. If it costs 3 or less, play it for free."}
 ];
 
 /**
@@ -188,6 +198,13 @@ function getCardLogic(cardData) {
     if (text.includes("ambush"))   logic.keywords.push("Ambush");
     if (text.includes("stealth"))  logic.keywords.push("Stealth");
     if (text.includes("lethal"))   logic.keywords.push("Lethal");
+
+    // Pasivní flagy
+    if (text.includes("attack twice"))                                   logic.keywords.push("DoubleAttack");
+    if (text.includes("can't be targeted by spells or hero powers"))     logic.keywords.push("SpellImmune");
+    else if (text.includes("can't be targeted by spells"))               logic.keywords.push("SpellImmune");
+    if (text.includes("can't attack unless"))                            logic.keywords.push("ConditionalAttack");
+    if (text.includes("immune while attacking"))                         logic.keywords.push("ImmuneTaunter");
 
     // 2. onPlay: Battlecry / Spell / Gear
     if (text.includes("battlecry") || cardData.type === "Spell" || cardData.type === "Gear") {
@@ -675,6 +692,76 @@ function getCardLogic(cardData) {
                 game.drawCard("player", 1);
                 return;
             }
+        };
+    }
+
+    // 6. Hero Power (pro karty typu Hero)
+    if (cardData.type === "Hero") {
+        logic.onHeroPower = function(game, selfCard, target) {
+            // MARSHAL EARP (80): Summon a 1/1 Deputy with Guard.
+            if (id === 80) { game.summonUnit(85, "player"); return; }
+
+            // BELLE STARR (81): Deal 2 damage to the enemy Hero.
+            if (id === 81) { game.damageHero("enemy", 2); return; }
+
+            // SITTING BEAR (82): Heal a Unit for 2 and give it +1 Health.
+            if (id === 82) {
+                if (target && typeof target !== "string") {
+                    target.hp = Math.min(target.maxHp, target.hp + 2);
+                    target.maxHp += 1; target.hp = Math.min(target.maxHp, target.hp + 1);
+                }
+                return;
+            }
+
+            // BARON SAMEDI (83): Deal 1 damage. If target dies draw a card.
+            if (id === 83) {
+                if (target && typeof target !== "string") {
+                    game.dealDamage(target, 1);
+                    if (target.hp <= 0) game.drawCard("player", 1);
+                }
+                return;
+            }
+
+            // DIAMOND JIM (84): Add a random Coin to your hand.
+            if (id === 84) { game.addCardToHand("player", 71); return; }
+
+            // JUDGE HOLLIDAY (126): Give a friendly Unit +2/+2 and Immune this turn.
+            if (id === 126) {
+                if (target && typeof target !== "string") {
+                    target.atk += 2; target.hp += 2; target.maxHp += 2;
+                    target.immuneThisTurn = true;
+                }
+                return;
+            }
+
+            // JESSE JAMES (127): Deal 1 damage per Outlaw you control to a random enemy.
+            if (id === 127) {
+                let outlawCount = game.board.filter(u => u.faction === "Outlaw").length;
+                for (let i = 0; i < outlawCount; i++) game.damageRandomEnemy(1);
+                return;
+            }
+
+            // THUNDERHAWK (128): Summon a 3/3 Spirit Wolf with Guardian. (token id:131)
+            if (id === 128) {
+                game.summonUnit(131, "player");
+                return;
+            }
+
+            // THE PALE RIDER (129): Give a Unit Lethal. If already has Lethal, destroy it.
+            if (id === 129) {
+                if (target && typeof target !== "string") {
+                    if (target.keywords && target.keywords.includes("Lethal")) {
+                        game.destroyUnit(target);
+                    } else {
+                        if (!target.keywords) target.keywords = [];
+                        target.keywords.push("Lethal");
+                    }
+                }
+                return;
+            }
+
+            // BIG NOSE KATE (130): Draw a card. If cost <= 3, play it for free.
+            if (id === 130) { game.drawAndPlayIfCheap("player", 3); return; }
         };
     }
 
