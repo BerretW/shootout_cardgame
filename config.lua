@@ -19,7 +19,7 @@ Config.Cards = {
     [31] = { id = 31, faction = "Law",     name = "TELEGRAPH",     type = "Unit",     cost = 2, atk = 1, hp = 2,  rarity = "Common",    text = "Battlecry: Draw 1 card." },
     [32] = { id = 32, faction = "Law",     name = "SNIPER",        type = "Unit",     cost = 4, atk = 4, hp = 2,  rarity = "Uncommon",  text = "Immune while attacking." },
     [33] = { id = 33, faction = "Law",     name = "COURTHOUSE",    type = "Landmark", cost = 4, atk = 0, hp = 6,  rarity = "Rare",      text = "Your units have +1 Health." },
-    [62] = { id = 62, faction = "Law",     name = "THE BANK",      type = "Landmark", cost = 3, atk = 0, hp = 5,  rarity = "Uncommon",  text = "End of Turn: 50% chance to gain 1 Grit." },
+    [62] = { id = 62, faction = "Law",     name = "THE BANK",      type = "Landmark", cost = 3, atk = 0, hp = 5,  rarity = "Uncommon",  text = "Start of Turn: 50% chance to gain 1 Grit." },
     [68] = { id = 68, faction = "Law",     name = "THE GALLOWS",   type = "Landmark", cost = 3, atk = 0, hp = 4,  rarity = "Rare",      text = "Enemy units have -1 Attack." },
     [74] = { id = 74, faction = "Law",     name = "SHERIFF BADGE", type = "Gear",     cost = 2, atk = 0, hp = 0,  rarity = "Common",    text = "Give a Unit +1/+3 and Guardian." },
     [80] = { id = 80, faction = "Law",     name = "MARSHAL EARP",  type = "Hero",     cost = 0, atk = 0, hp = 30, rarity = "Legendary", text = "Hero Power (2 Grit): Summon a 1/1 Deputy with Guard." },
@@ -107,11 +107,11 @@ Config.Cards = {
     [73] = { id = 73, faction = "Mythos",  name = "CAVE BAT",       type = "Unit",     cost = 1, atk = 1, hp = 1,  rarity = "Common",    token = true, text = "" },
     [77] = { id = 77, faction = "Mythos",  name = "SILVER BULLETS", type = "Gear",     cost = 3, atk = 0, hp = 0,  rarity = "Uncommon",  text = "Give a Unit +2 Attack and Lethal." },
     [83] = { id = 83, faction = "Mythos",  name = "BARON SAMEDI",   type = "Hero",     cost = 0, atk = 0, hp = 20, rarity = "Legendary", text = "Hero Power (2 Grit): Deal 1 damage. If target dies draw a card." },
-    [110]= { id = 110,faction = "Mythos",  name = "WENDIGO",        type = "Unit",     cost = 4, atk = 5, hp = 3,  rarity = "Rare",      text = "Ambush. Gains +2 Attack each time any Unit dies." },
+    [110]= { id = 110,faction = "Mythos",  name = "WENDIGO",        type = "Unit",     cost = 4, atk = 5, hp = 3,  rarity = "Legendary",      text = "Ambush. Gains +2 Attack each time any Unit dies." },
     [111]= { id = 111,faction = "Mythos",  name = "CURSED GROUND",  type = "Landmark", cost = 3, atk = 0, hp = 5,  rarity = "Uncommon",  text = "Units that die here can't be resurrected." },
     [112]= { id = 112,faction = "Mythos",  name = "SHADOW WALKER",  type = "Unit",     cost = 3, atk = 2, hp = 3,  rarity = "Common",    text = "Stealth. Battlecry: Deal 1 damage to all enemies." },
-    [113]= { id = 113,faction = "Mythos",  name = "WITCH'S BREW",   type = "Spell",    cost = 2, atk = 0, hp = 0,  rarity = "Common",    text = "Give a Unit +3/+3. At end of turn, destroy it." },
-    [114]= { id = 114,faction = "Mythos",  name = "POLTERGEIST",    type = "Unit",     cost = 2, atk = 1, hp = 3,  rarity = "Uncommon",  text = "Battlecry: Return a random enemy Unit to their hand." },
+    [113]= { id = 113,faction = "Mythos",  name = "WITCHS BREW",   type = "Spell",    cost = 2, atk = 0, hp = 0,  rarity = "Common",    text = "Give a Unit +3/+3. At end of turn, destroy it." },
+    [114]= { id = 114,faction = "Mythos",  name = "POLTERGEIST",    type = "Unit",     cost = 2, atk = 1, hp = 3,  rarity = "Legendary",  text = "Battlecry: Return a random enemy Unit to their hand." },
     [115]= { id = 115,faction = "Mythos",  name = "LICH KING",      type = "Unit",     cost = 8, atk = 6, hp = 8,  rarity = "Legendary", text = "Last Word: Return this to your hand with full Health." },
     [116]= { id = 116,faction = "Mythos",  name = "SOUL HARVEST",   type = "Spell",    cost = 4, atk = 0, hp = 0,  rarity = "Epic",      text = "Destroy all damaged Units. Gain 1 Grit for each destroyed." },
     [117]= { id = 117,faction = "Mythos",  name = "BANSHEE",        type = "Unit",     cost = 3, atk = 1, hp = 3,  rarity = "Rare",      text = "Last Word: Deal 3 damage to all enemy Units." },
@@ -158,6 +158,7 @@ Config.Cards = {
 
 Config.Decks = {
     cards_pack_1 = { name = "Deck 1", item = "cards_pack_1", limit = 25 },
+    cards_pack_2 = { name = "Deck 2", item = "cards_pack_2", limit = 30 },
 }
 
 Config.Packs = {

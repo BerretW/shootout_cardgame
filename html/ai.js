@@ -24,7 +24,7 @@ function startAITurn() {
         if (playableIdx > -1 && enemyBoard.length < 7) {
             let card = enemyHandAI[playableIdx];
 
-            aiMana -= card.cost;
+            aiMana -= (card.cost + beaverPenalty);
             enemyHandAI.splice(playableIdx, 1);
             enemyBoard.push(card);
 

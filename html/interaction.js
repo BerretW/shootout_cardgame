@@ -18,25 +18,7 @@ function handleCardClick(index) {
         return;
     }
 
-    const text = card.text.toLowerCase();
-    const needsTarget = (
-        card.type === "Gear" ||
-        (card.type === "Spell" && (
-            text.includes("deal") ||
-            text.includes("give") ||
-            text.includes("destroy") ||
-            text.includes("heal") ||
-            text.includes("return a unit") ||
-            text.includes("choose an enemy")
-        )) ||
-        (card.logic.onPlay && text.includes("target"))
-    );
-
-    const isGlobal = text.includes("all units") || text.includes("all characters") ||
-        text.includes("all enemy") || text.includes("all friendly") ||
-        text.includes("all damaged") || text.includes("random");
-
-    if (needsTarget && !isGlobal) {
+    if (card.logic.requiresTarget) {
         selectedCardIndex = index;
         selectedAttacker = null;
         updateUI();
@@ -62,6 +44,11 @@ function handleUnitClick(unit, isEnemy) {
         if (isEnemy && unit.keywords.includes("Stealth")) return;
         // WHITE BISON (id:43): imunní vůči Spellům a Gearům
         if (unit.id === 43 && (card.type === "Spell" || card.type === "Gear")) return;
+        // Gear limit: max 2 slotů (nebo target.gearSlots pokud karta říká jinak)
+        if (card.type === "Gear" && unit.type === "Unit") {
+            let maxGear = unit.gearSlots || 2;
+            if ((unit.gear || []).length >= maxGear) return;
+        }
         playCard(selectedCardIndex, unit);
         selectedCardIndex = -1;
         return;

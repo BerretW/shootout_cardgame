@@ -48,6 +48,7 @@ let selectedAttacker = null;
 
 // Hero Power
 let playerHeroCard = null;
+let enemyHeroCard = null;
 let playerHeroLogic = null;
 let heroPowerUsed = false;
 let heroPowerMode = false;

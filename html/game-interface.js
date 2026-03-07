@@ -119,7 +119,7 @@ function makeGameInterface(perspective) {
             const hand  = getHand(actual);
             let idx = -1;
             for (let i = grave.length - 1; i >= 0; i--) {
-                if (grave[i].type === "Unit") { idx = i; break; }
+                if (grave[i].type === "Unit" && !grave[i].cursed) { idx = i; break; }
             }
             if (idx > -1 && hand.length < 10) {
                 let card = grave.splice(idx, 1)[0];
@@ -132,7 +132,7 @@ function makeGameInterface(perspective) {
             const actual = flip(owner);
             const grave = getGrave(actual);
             const board = getBoard(actual);
-            let pool = grave.filter(c => c.type === "Unit" && (!faction || c.faction === faction));
+            let pool = grave.filter(c => c.type === "Unit" && !c.cursed && (!faction || c.faction === faction));
             if (pool.length > 0) {
                 let card = pool[Math.floor(Math.random() * pool.length)];
                 grave.splice(grave.indexOf(card), 1);

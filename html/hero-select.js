@@ -101,6 +101,7 @@ function initGame(isFirst, oppName, chosenHero, enemyHeroOverride) {
 
     // Nastavení oponenta
     let enemyHero = enemyHeroOverride || CardDB.filter(c => c.type === "Hero" && c.id !== chosenHero.id)[0] || CardDB[80];
+    enemyHeroCard = enemyHero;
     enemyHp = enemyHero.hp;
     enemyMaxHp = enemyHero.hp;
     $("#opp-name").text(oppName);

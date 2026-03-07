@@ -84,7 +84,8 @@ $(document).ready(function() {
 
     // Pravé tlačítko mimo kartu zavře zoom
     $(document).on("contextmenu", function(e) {
-        if (!$(e.target).closest('.card').length) {
+        if (!$(e.target).closest('.card').length &&
+            !$(e.target).closest('.hero-portrait').length) {
             e.preventDefault();
             hideCardZoom();
         }

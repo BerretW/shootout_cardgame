@@ -504,7 +504,7 @@ AddEventHandler("vorp_inventory:useItem", function(data)
         -- Použití balíčku karet (deck)
         for _, deck in pairs(Config.Decks) do
             if itemName == deck.item then
-                print(json.encode(itemData, { indent = true }))
+                -- print(json.encode(itemData, { indent = true }))
 
                 if not itemData.metadata.id then
                     itemData.metadata.id = charID .. "_" .. os.time()

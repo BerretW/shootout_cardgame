@@ -12,6 +12,10 @@ function getCardCost(card) {
     if (card.type === "Unit" && playerBoard.some(b => b.id === 93)) {
         cost = Math.max(0, cost - 1);
     }
+    // BEAVER DAM (id:70): Enemy units cost (1) more — pokud AI má Beaver Dam, hráčovy jednotky stojí +1
+    if (card.type === "Unit" && enemyBoard.some(b => b.id === 70)) {
+        cost += 1;
+    }
     return cost;
 }
 
@@ -56,6 +60,8 @@ function playCard(index, target) {
     } else if (card.type === "Gear") {
         if (target && target.type === "Unit") {
             if (!target.gear) target.gear = [];
+            let maxGear = target.gearSlots || 2;
+            if (target.gear.length >= maxGear) return;
             target.gear.push(card);
             if (card.logic && card.logic.onPlay) {
                 card.logic.onPlay(GameInterface, card, target);

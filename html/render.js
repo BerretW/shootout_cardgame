@@ -43,7 +43,7 @@ function applyAuras() {
 
         let newAuraKeywords = [];
         if (hasGangLeader && u.faction === "Outlaw" && u.id !== 35) newAuraKeywords.push("Ambush");
-        if (hasHideout) newAuraKeywords.push("Stealth");
+        if (hasHideout && u.type === "Unit" && !u.keywords.includes("Guardian")) newAuraKeywords.push("Stealth");
 
         newAuraKeywords.forEach(k => { if (!u.keywords.includes(k)) u.keywords.push(k); });
         u.auraKeywords = newAuraKeywords;
@@ -124,9 +124,13 @@ function updateUI() {
     }
     $("#opp-hero").toggleClass("hero-targetable", !!(heroAttackable || heroSpellTargetable));
 
-    $("#opp-hero").off("click mousedown")
+    $("#opp-hero").off("click mousedown contextmenu")
         .on("mousedown", function(e) { e.stopPropagation(); })
-        .on("click", handleEnemyHeroClick);
+        .on("click", handleEnemyHeroClick)
+        .on("contextmenu", (e) => { e.preventDefault(); if (enemyHeroCard) showCardZoom(enemyHeroCard); });
+
+    $("#player-hero").off("contextmenu")
+        .on("contextmenu", (e) => { e.preventDefault(); if (playerHeroCard) showCardZoom(playerHeroCard); });
 }
 
 function renderBoard(container, boardData, isEnemy) {

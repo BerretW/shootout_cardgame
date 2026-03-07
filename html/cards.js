@@ -23,7 +23,7 @@ const _CardDB_fallback = [
     {id: 31, faction: "Law", name: "TELEGRAPH", type: "Unit", cost: 2, atk: 1, hp: 2, text: "Battlecry: Draw 1 card."},
     {id: 32, faction: "Law", name: "SNIPER", type: "Unit", cost: 4, atk: 4, hp: 2, text: "Immune while attacking."},
     {id: 33, faction: "Law", name: "COURTHOUSE", type: "Landmark", cost: 4, atk: 0, hp: 6, text: "Your units have +1 Health."},
-    {id: 62, faction: "Law", name: "THE BANK", type: "Landmark", cost: 3, atk: 0, hp: 5, text: "End of Turn: 50% chance to gain 1 Grit."},
+    {id: 62, faction: "Law", name: "THE BANK", type: "Landmark", cost: 3, atk: 0, hp: 5, text: "Start of your turn: 50% chance to gain 1 Grit."},
     {id: 68, faction: "Law", name: "THE GALLOWS", type: "Landmark", cost: 3, atk: 0, hp: 4, text: "Enemy units have -1 Attack."},
     {id: 74, faction: "Law", name: "SHERIFF BADGE", type: "Gear", cost: 2, atk: 0, hp: 0, text: "Give a Unit +1/+3 and Guardian."},
     {id: 80, faction: "Law", name: "MARSHAL EARP", type: "Hero", cost: 0, atk: 0, hp: 30, text: "Hero Power (2 Grit): Summon a 1/1 Deputy with Guard."},
@@ -187,17 +187,20 @@ function getCardLogic(cardData) {
         onPlay: null,
         onDeath: null,
         onTurnEnd: null,
-        onTurnStart: null
+        onTurnStart: null,
+        requiresTarget: false
     };
 
     const text = cardData.text ? cardData.text.toLowerCase() : "";
     const id = cardData.id;
 
-    // 1. Klíčová slova
-    if (text.includes("guardian")) logic.keywords.push("Guardian");
-    if (text.includes("ambush"))   logic.keywords.push("Ambush");
-    if (text.includes("stealth"))  logic.keywords.push("Stealth");
-    if (text.includes("lethal"))   logic.keywords.push("Lethal");
+    // 1. Klíčová slova (pouze pro Unit karty — aby Landmark s textem "have Stealth" nedostal keyword sám sobě)
+    if (cardData.type === "Unit") {
+        if (text.includes("guardian")) logic.keywords.push("Guardian");
+        if (text.includes("ambush"))   logic.keywords.push("Ambush");
+        if (text.includes("stealth"))  logic.keywords.push("Stealth");
+        if (text.includes("lethal"))   logic.keywords.push("Lethal");
+    }
 
     // Pasivní flagy
     if (text.includes("attack twice"))                                   logic.keywords.push("DoubleAttack");
@@ -338,6 +341,14 @@ function getCardLogic(cardData) {
                 return;
             }
 
+            // BEAR TRAP: Deal 3 damage to an undamaged Unit.
+            if (id === 15) {
+                if (target && typeof target !== "string" && target.hp === target.maxHp) {
+                    game.dealDamage(target, 3);
+                }
+                return;
+            }
+
             // PRAIRIE FIRE: Deal 1 damage to all Units. Repeat 3 times.
             if (id === 121) {
                 for (let i = 0; i < 3; i++) {
@@ -424,10 +435,11 @@ function getCardLogic(cardData) {
             // SHADOW WALKER (112): Battlecry: Deal 1 damage to all enemies.
             if (id === 112) { game.damageAllEnemies(1); return; }
 
-            // WITCH'S BREW (113): Give a Unit +3/+3.
+            // WITCH'S BREW (113): Give a Unit +3/+3. At end of turn, destroy it.
             if (id === 113) {
                 if (target && typeof target !== "string") {
                     target.atk += 3; target.hp += 3; target.maxHp += 3;
+                    target.scheduledDestroy = true;
                 }
                 return;
             }
@@ -456,10 +468,11 @@ function getCardLogic(cardData) {
             // CARD SHARK (118): Battlecry: Peek at top card (simplified: draw 1).
             if (id === 118) { game.drawCard("player", 1); return; }
 
-            // WHISKEY BOTTLE (119): Give a Unit +2 Attack.
+            // WHISKEY BOTTLE (119): Give a Unit +2 Attack until end of turn.
             if (id === 119) {
                 if (target && typeof target !== "string") {
                     target.atk += 2; target.baseAtk = target.atk;
+                    target.tempAtkBuff = (target.tempAtkBuff || 0) + 2;
                 }
                 return;
             }
@@ -510,7 +523,9 @@ function getCardLogic(cardData) {
                 let dmg = parseInt(dmgMatch[1]);
                 if (text.includes("to all characters")) {
                     game.damageAll(dmg, true);
-                } else if (text.includes("to all enemy units") || text.includes("to all units")) {
+                } else if (text.includes("to all enemy units")) {
+                    game.damageAllEnemies(dmg);
+                } else if (text.includes("to all units")) {
                     game.damageAll(dmg, false);
                 } else if (text.includes("to your hero")) {
                     game.damageHero("player", dmg);
@@ -641,11 +656,6 @@ function getCardLogic(cardData) {
                 game.healHero("player", 1);
                 return;
             }
-            // THE BANK: 50% chance to gain 1 Grit.
-            if (id === 62) {
-                if (Math.random() >= 0.5) game.addGrit("player", 1);
-                return;
-            }
             // OUTLAW CAMP (100): Give a random Outlaw in hand +1/+1.
             if (id === 100) {
                 let outlaws = playerHand.filter(c => c.faction === "Outlaw");
@@ -690,6 +700,11 @@ function getCardLogic(cardData) {
             // TRAIN STATION: Draw an extra card.
             if (id === 66) {
                 game.drawCard("player", 1);
+                return;
+            }
+            // THE BANK: 50% chance to gain 1 Grit.
+            if (id === 62) {
+                if (Math.random() >= 0.5) game.addGrit("player", 1);
                 return;
             }
         };
@@ -764,6 +779,33 @@ function getCardLogic(cardData) {
             if (id === 130) { game.drawAndPlayIfCheap("player", 3); return; }
         };
     }
+
+    // Karty vyžadující výběr cíle (dle ID) — Gear vždy, ostatní per ID
+    const REQUIRES_TARGET_IDS = new Set([
+        4,   // HANDCUFFS
+        8,   // DUELIST
+        9,   // MOLOTOV
+        15,  // BEAR TRAP
+        25,  // SAFECRACKER
+        26,  // THE HANGMAN
+        28,  // RAILROAD BOSS
+        30,  // CELL DOOR
+        39,  // GETAWAY HORSE
+        49,  // STRANGE MAN
+        58,  // SWAMP WITCH
+        82,  // SITTING BEAR
+        83,  // BARON SAMEDI
+        87,  // JUDGE'S GAVEL
+        89,  // PRISON WAGON
+        95,  // SNAKE EYES
+        97,  // SABOTAGE
+        113, // WITCH'S BREW
+        119, // WHISKEY BOTTLE
+        120, // BOUNTY HUNTER
+        126, // JUDGE HOLLIDAY
+        129, // THE PALE RIDER
+    ]);
+    logic.requiresTarget = cardData.type === "Gear" || REQUIRES_TARGET_IDS.has(id);
 
     return logic;
 }

@@ -2,7 +2,7 @@
 -- FILE: client.lua
 -- ==========================================
 local VorpCore = {}
-
+menuOpen = false
 TriggerEvent("getCore", function(core)
     VorpCore = core
 end)
@@ -31,7 +31,7 @@ end
 local function getMyCards(inventory)
 
     local myCards = {}
-    print(json.encode(inventory, {indent = true}))
+    -- print(json.encode(inventory, {indent = true}))
     for _, item in ipairs(inventory) do
         local cardID = isThisACard(item.name)
         if cardID then
@@ -55,7 +55,7 @@ end)
 RegisterNetEvent('shootout:startMultiplayer')
 AddEventHandler('shootout:startMultiplayer', function(data)
     SetDisplay(true)
-
+    menuOpen = true
     SendNUIMessage({
         type = "start_game",
         isFirst = data.isFirst,
@@ -107,6 +107,7 @@ function showCard(cardId)
         return
     end
     SetNuiFocus(true, true)
+    menuOpen = true
     SendNUIMessage({
         type     = "show_card",
         card     = card,
@@ -134,6 +135,7 @@ RegisterNUICallback("closeCard", function(data, cb)
         SetNuiFocus(false, false)
     end
     cb('ok')
+    menuOpen = false
 end)
 
 -- Vylepšení callbacku exit
@@ -141,7 +143,7 @@ RegisterNUICallback("exit", function(data, cb)
     SetDisplay(false)
     SetNuiFocus(false, false)
     print("^1[Shootout] Hra ukončena klientem.^0")
-    
+    menuOpen = false
     
     cb('ok')
 end)
@@ -163,7 +165,7 @@ RegisterCommand("testgame", function(source, args)
     end
     -- print(json.encode(MyDeck, {indent = true}))
     SetDisplay(true)
-
+    menuOpen = true
     SendNUIMessage({
         type = "start_singleplayer",
         cards = Config.Cards,
@@ -192,6 +194,7 @@ RegisterCommand("duel", function(source, args)
 
     if arg1 == "ano" then
         -- Přijetí výzvy
+        menuOpen = true
         local myCards = MyDeck
         if #myCards < MIN_CARDS then
             TriggerEvent('chat:addMessage', {
@@ -211,6 +214,7 @@ RegisterCommand("duel", function(source, args)
             })
             return
         end
+        menuOpen = true
         local myCards = MyDeck
         if #myCards < MIN_CARDS then
             TriggerEvent('chat:addMessage', {
@@ -268,4 +272,33 @@ AddEventHandler('shootout:youAreChallenged', function(challengerName)
         multiline = true,
         args = {"Shootout", "^3" .. challengerName .. "^0 tě vyzval na duel karet! Napiš ^2/duel ano^0 pro přijetí. (Potřebuješ alespoň " .. MIN_CARDS .. " karet)"}
     })
+end)
+
+
+
+CreateThread(function()
+    repeat
+        Wait(5000)
+    until LocalPlayer.state.IsInSession
+    local isNuiFocused = false
+
+    while true do
+        local sleep = 0
+        if menuOpen then
+            if not isNuiFocused then
+                SetNuiFocusKeepInput(true)
+                isNuiFocused = true
+            end
+
+            DisableAllControlActions(0)
+            EnableControlAction(0, GetHashKey("INPUT_PUSH_TO_TALK"), true)
+        else
+            sleep = 1000
+            if isNuiFocused then
+                SetNuiFocusKeepInput(false)
+                isNuiFocused = false
+            end
+        end
+        Wait(sleep)
+    end
 end)

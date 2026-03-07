@@ -48,6 +48,19 @@ function endTurn() {
     playerBoard.forEach(u => {
         if (u.logic && u.logic.onTurnEnd) u.logic.onTurnEnd(GameInterface, u);
     });
+
+    // WHISKEY BOTTLE (id:119): Revertovat dočasné útokové buffy
+    playerBoard.forEach(u => {
+        if (u.tempAtkBuff) {
+            u.atk = Math.max(0, u.atk - u.tempAtkBuff);
+            u.baseAtk = u.atk;
+            delete u.tempAtkBuff;
+        }
+    });
+
+    // WITCH'S BREW (id:113): Zničit jednotky označené scheduledDestroy
+    playerBoard.forEach(u => { if (u.scheduledDestroy) u.hp = -99; });
+
     checkDeaths();
 
     $("#game-message").text("ENEMY TURN");
