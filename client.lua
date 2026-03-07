@@ -75,11 +75,55 @@ function SetDisplay(bool)
     })
 end
 
-RegisterNUICallback("exit", function(data)
+AddEventHandler('onResourceStop', function(resourceName)
+    if (GetCurrentResourceName() ~= resourceName) then
+      return
+    end
+    SetNuiFocus(false, false)
+end)
+
+-- Zobrazení jedné karty na obrazovce (volitelně s allCards pro inicializaci DB)
+function showCard(cardId)
+    local card = Config.Cards[cardId]
+    if not card then
+        print("^1[Shootout] showCard: karta s ID " .. tostring(cardId) .. " neexistuje.^0")
+        return
+    end
+    SetNuiFocus(true, true)
+    SendNUIMessage({
+        type     = "show_card",
+        card     = card,
+        allCards = Config.Cards,
+    })
+end
+
+RegisterCommand("showcard", function(source, args)
+    local cardId = tonumber(args[1])
+    if not cardId then
+        print("^1[Shootout] Použití: /showcard [ID karty]^0")
+        return
+    end
+    showCard(cardId)
+end)
+
+RegisterNUICallback("closeCard", function(data, cb)
+    -- NUI focus ponecháme pouze pokud je hra aktivní (display == true)
+    if not display then
+        SetNuiFocus(false, false)
+    end
+    cb('ok')
+end)
+
+-- Vylepšení callbacku exit
+RegisterNUICallback("exit", function(data, cb)
     SetDisplay(false)
     SetNuiFocus(false, false)
-    print("^1[Shootout] Ukončil jsi hru.^0")
-    -- Tady by se mělo poslat info serveru, že jsi to vzdal
+    print("^1[Shootout] Hra ukončena klientem.^0")
+    
+    -- Informuj server, že hráč to vzdal (pokud je ve hře)
+    -- TriggerServerEvent('shootout:surrender') -- Doporučuji implementovat na serveru
+    
+    cb('ok')
 end)
 
 -- JS pošle akci -> my ji pošleme serveru
@@ -95,7 +139,8 @@ RegisterCommand("testgame", function(source, args)
     SendNUIMessage({
         type = "start_singleplayer",
         cards = Config.Cards,
-        myCards = MyCards
+        myCards = MyCards,
+        debug = true
     })
     TriggerEvent('chat:addMessage', {
         color = {255, 255, 0},

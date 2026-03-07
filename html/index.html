@@ -43,7 +43,11 @@
     <!-- Zoom karty (pravé tlačítko myši) -->
     <div id="card-zoom" style="display:none;">
         <div id="card-zoom-inner">
-            <img id="card-zoom-img" src="" alt="">
+            <div id="card-zoom-face">
+                <img id="card-zoom-img" src="" alt="">
+                <div id="cz-rarity-badge"></div>
+                <div id="cz-rarity-line"></div>
+            </div>
             <div id="card-zoom-info">
                 <div id="cz-name"></div>
                 <div id="cz-meta"></div>
@@ -76,10 +80,23 @@
         </div>
     </div>
 
+    <!-- Potvrzení ukončení hry -->
+    <div id="confirm-overlay" style="display:none;">
+        <div class="confirm-content">
+            <h2>OPUSTIT HRU?</h2>
+            <p>Opravdu chceš ukončit hru?</p>
+            <div class="confirm-btn-row">
+                <button class="menu-btn" onclick="exitGame()">ANO, ODEJÍT</button>
+                <button class="menu-btn" onclick="$('#confirm-overlay').hide()">NE, ZPĚT</button>
+            </div>
+        </div>
+    </div>
+
     <!-- Výběr Hrdiny Overlay -->
     <div id="hero-selection" class="hero-selection-overlay" style="display:none;">
         <h1>CHOOSE YOUR LEGEND</h1>
         <div id="hero-list" class="hero-list"></div>
+        <button class="menu-btn hero-cancel-btn" onclick="confirmExitGame()">ZRUŠIT HRU</button>
     </div>
 
     <div id="game-container" style="display:none;">
@@ -158,7 +175,32 @@
             <button id="pack-collect-btn" style="display:none;" onclick="collectPackCards()">VZÍT KARTY</button>
         </div>
     </div>
+<div id="fullscreen-overlay" style="display:none;" onclick="closeFullscreen()">
+        <img id="fullscreen-img" src="" alt="Card Fullscreen">
+    </div>
 
+    <!-- Show Card Overlay (NUI callback showCard z clienta) -->
+    <div id="show-card-overlay" style="display:none;" onclick="closeShowCard()">
+        <div id="show-card-inner" onclick="event.stopPropagation()">
+            <div id="show-card-face">
+                <img id="show-card-img" src="" alt="" onerror="this.src='img/card_back.png'">
+                <div id="show-card-rarity-badge"></div>
+                <div id="show-card-name-tag"></div>
+                <div id="show-card-rarity-line"></div>
+            </div>
+            <div id="show-card-info">
+                <div id="sc-name"></div>
+                <div id="sc-meta"></div>
+                <div id="sc-cost"></div>
+                <div id="sc-stats"></div>
+                <div id="sc-divider"></div>
+                <div id="sc-text"></div>
+                <button id="show-card-close-btn" onclick="closeShowCard()">✕ ZAVŘÍT</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="game-container" style="display:none;">
     <script src="cards.js"></script>
     <script src="script.js"></script>
 </body>

@@ -1,28 +1,39 @@
 -- ==========================================
 -- FILE: server.lua
 -- ==========================================
-math.randomseed(os.time() + GetGameTimer())
+math.randomseed(os.time())
 
 local ActiveGames = {}   -- { [source] = opponentSource }
 local PendingDuels = {}  -- { [targetSource] = challengerSource }
 
-local function constructCardName(cardID)
-    local card = Config.Cards[cardID]
-    if card then
-        return tostring(card.id .. "_" .. card.type .. "_" .. card.name:gsub(" ", "_"))
-    else
-        return "Unknown Card"
-    end
+-- Pomocná funkce pro bezpečné získání jména
+local function GetName(src)
+    return GetPlayerName(src) or "Unknown Cowboy"
 end
 
--- Výzva k duelu – spouštěno z klientského příkazu /duel [ID]
+-- Výzva k duelu
 RegisterNetEvent('shootout:sendChallenge')
 AddEventHandler('shootout:sendChallenge', function(target)
     local src = source
     target = tonumber(target)
 
-    if not target or target == src or not GetPlayerName(target) then
-        TriggerClientEvent('chatMessage', src, "^1[Shootout]", {255, 0, 0}, "Hráč nenalezen nebo jsi zadal sebe.")
+    if not target or target == -1 then
+        TriggerClientEvent('chatMessage', src, "^1[Shootout]", {255, 0, 0}, "Neplatné ID hráče.")
+        return
+    end
+
+    if target == src then
+        TriggerClientEvent('chatMessage', src, "^1[Shootout]", {255, 0, 0}, "Nemůžeš vyzvat sám sebe.")
+        return
+    end
+
+    if not GetPlayerName(target) then
+        TriggerClientEvent('chatMessage', src, "^1[Shootout]", {255, 0, 0}, "Hráč se nenachází ve městě (offline).")
+        return
+    end
+
+    if ActiveGames[src] then
+        TriggerClientEvent('chatMessage', src, "^1[Shootout]", {255, 0, 0}, "Ty už jsi ve hře! Nejprve ji dokonči.")
         return
     end
 
@@ -32,37 +43,123 @@ AddEventHandler('shootout:sendChallenge', function(target)
     end
 
     if PendingDuels[target] then
-        TriggerClientEvent('chatMessage', src, "^1[Shootout]", {255, 165, 0}, "Tento hráč již má nevyřízenou výzvu.")
+        TriggerClientEvent('chatMessage', src, "^1[Shootout]", {255, 165, 0}, "Tento hráč již má jinou nevyřízenou výzvu.")
         return
     end
 
+    -- Uložíme výzvu
     PendingDuels[target] = src
 
-    TriggerClientEvent('chatMessage', src, "^2[Shootout]", {0, 255, 0}, "Výzva odeslána hráči " .. GetPlayerName(target) .. ". Čekej na přijetí...")
-    TriggerClientEvent('shootout:youAreChallenged', target, GetPlayerName(src))
+    TriggerClientEvent('chatMessage', src, "^2[Shootout]", {0, 255, 0}, "Výzva odeslána hráči " .. GetName(target) .. ". Čekej na přijetí...")
+    TriggerClientEvent('shootout:youAreChallenged', target, GetName(src))
+    
+    -- Timeout pro výzvu (volitelné, aby nezůstala viset věčně)
+    SetTimeout(30000, function()
+        if PendingDuels[target] == src then
+            PendingDuels[target] = nil
+            TriggerClientEvent('chatMessage', src, "^1[Shootout]", {255, 165, 0}, "Výzva vypršela.")
+            TriggerClientEvent('chatMessage', target, "^1[Shootout]", {255, 165, 0}, "Výzva od " .. GetName(src) .. " vypršela.")
+        end
+    end)
 
-    print("^3[Shootout] " .. GetPlayerName(src) .. " vyzval " .. GetPlayerName(target) .. "^0")
+    print("^3[Shootout] " .. GetName(src) .. " vyzval " .. GetName(target) .. "^0")
 end)
 
--- Přijetí duelu – spouštěno z klientského příkazu /duel ano
+-- Přijetí duelu
 RegisterNetEvent('shootout:acceptDuel')
 AddEventHandler('shootout:acceptDuel', function()
     local src = source
     local challenger = PendingDuels[src]
 
-    if not challenger or not GetPlayerName(challenger) then
-        TriggerClientEvent('chatMessage', src, "^1[Shootout]", {255, 0, 0}, "Nemáš žádnou nevyřízenou výzvu k duelu.")
+    if not challenger then
+        TriggerClientEvent('chatMessage', src, "^1[Shootout]", {255, 0, 0}, "Nemáš žádnou aktivní výzvu.")
         return
     end
 
+    -- Ověření, zda je vyzyvatel stále online a volný
+    if not GetPlayerName(challenger) then
+        TriggerClientEvent('chatMessage', src, "^1[Shootout]", {255, 0, 0}, "Vyzyvatel se odpojil.")
+        PendingDuels[src] = nil
+        return
+    end
+
+    if ActiveGames[challenger] then
+        TriggerClientEvent('chatMessage', src, "^1[Shootout]", {255, 0, 0}, "Vyzyvatel už začal jinou hru.")
+        PendingDuels[src] = nil
+        return
+    end
+
+    -- Start hry
     PendingDuels[src] = nil
     ActiveGames[src] = challenger
     ActiveGames[challenger] = src
 
-    TriggerClientEvent('shootout:startMultiplayer', challenger, { opponentName = GetPlayerName(src), isFirst = true })
-    TriggerClientEvent('shootout:startMultiplayer', src, { opponentName = GetPlayerName(challenger), isFirst = false })
+    -- Určení kdo začíná (náhodně)
+    local coinFlip = math.random(1, 2)
+    local player1Start = (coinFlip == 1)
 
-    print("^2[Shootout] Hra začala: " .. GetPlayerName(challenger) .. " vs " .. GetPlayerName(src) .. "^0")
+    -- Odeslání startovního eventu oběma hráčům
+    -- isFirst = true znamená, že hráč má první tah
+    TriggerClientEvent('shootout:startMultiplayer', challenger, { 
+        opponentName = GetName(src), 
+        isFirst = player1Start 
+    })
+    
+    TriggerClientEvent('shootout:startMultiplayer', src, { 
+        opponentName = GetName(challenger), 
+        isFirst = not player1Start 
+    })
+
+    print("^2[Shootout] Hra začala: " .. GetName(challenger) .. " vs " .. GetName(src) .. "^0")
+end)
+
+-- Přeposílání akcí (SYNCHRONIZACE)
+RegisterNetEvent('shootout:sendAction')
+AddEventHandler('shootout:sendAction', function(actionData)
+    local src = source
+    local opponent = ActiveGames[src]
+
+    if opponent then
+        -- Bezpečnostní kontrola, zda soupeř existuje
+        if GetPlayerName(opponent) then
+            TriggerClientEvent('shootout:receiveAction', opponent, actionData)
+        else
+            -- Soupeř spadl, ale server to ještě nezaregistroval přes playerDropped
+            TriggerClientEvent('shootout:opponentLeft', src)
+            ActiveGames[src] = nil
+        end
+    end
+end)
+
+-- Ukončení hry při odpojení
+AddEventHandler('playerDropped', function()
+    local src = source
+    local name = GetName(src)
+
+    -- 1. Pokud byl ve hře, informuj soupeře
+    local opponent = ActiveGames[src]
+    if opponent then
+        TriggerClientEvent('shootout:opponentLeft', opponent)
+        TriggerClientEvent('chatMessage', opponent, "^1[Shootout]", {255, 0, 0}, "Soupeř " .. name .. " se odpojil. Vyhrál jsi kontumačně.")
+        ActiveGames[opponent] = nil
+        ActiveGames[src] = nil
+    end
+
+    -- 2. Pokud někoho vyzýval (čekalo se na přijetí)
+    for target, challenger in pairs(PendingDuels) do
+        if challenger == src then
+            PendingDuels[target] = nil
+            TriggerClientEvent('chatMessage', target, "^1[Shootout]", {255, 0, 0}, "Hráč " .. name .. " zrušil výzvu (odpojen).")
+        end
+    end
+
+    -- 3. Pokud byl vyzván
+    if PendingDuels[src] then
+        -- Tady není třeba nic posílat, challengerovi vyprší timeout nebo zjistí, že hráč není online při pokusu o opakování
+        PendingDuels[src] = nil
+    end
+    
+    print("^3[Shootout] Hráč " .. name .. " se odpojil. Data vyčištěna.^0")
 end)
 
 -- ==========================================
@@ -280,41 +377,4 @@ function constructCardName(cardID)
     return nil
 end
 
--- ==========================================
--- Přeposílání herních akcí (karta zahrána, útok, konec kola...)
-RegisterNetEvent('shootout:sendAction')
-AddEventHandler('shootout:sendAction', function(actionData)
-    local src = source
-    local opponent = ActiveGames[src]
 
-    if opponent then
-        -- Přeposlat data oponentovi
-        TriggerClientEvent('shootout:receiveAction', opponent, actionData)
-    end
-end)
-
--- Ukončení hry při odpojení
-AddEventHandler('playerDropped', function()
-    local src = source
-
-    -- Vyčistit aktivní hru
-    local opponent = ActiveGames[src]
-    if opponent then
-        TriggerClientEvent('shootout:opponentLeft', opponent)
-        ActiveGames[opponent] = nil
-        ActiveGames[src] = nil
-    end
-
-    -- Vyčistit čekající výzvy (jako vyzývatel)
-    for target, challenger in pairs(PendingDuels) do
-        if challenger == src then
-            PendingDuels[target] = nil
-            TriggerClientEvent('chatMessage', target, "^1[Shootout]", {255, 0, 0}, "Výzva k duelu byla zrušena – hráč se odpojil.")
-        end
-    end
-
-    -- Vyčistit čekající výzvy (jako vyzvaný)
-    if PendingDuels[src] then
-        PendingDuels[src] = nil
-    end
-end)

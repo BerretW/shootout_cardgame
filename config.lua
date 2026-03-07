@@ -138,6 +138,13 @@ Config.Cards = {
     [123]= { id = 123,faction = "Saloon",  name = "UNDERTAKER",     type = "Unit",     cost = 3, atk = 2, hp = 4,  rarity = "Uncommon",  text = "Each time a friendly Unit dies, gain +1 Grit." },
     [124]= { id = 124,faction = "Neutral", name = "CAMPFIRE",       type = "Landmark", cost = 2, atk = 0, hp = 3,  rarity = "Common",    text = "End of Turn: Restore 1 Health to your Hero." },
     [125]= { id = 125,faction = "Neutral", name = "PONY EXPRESS",   type = "Unit",     cost = 2, atk = 1, hp = 2,  rarity = "Common",    text = "Battlecry: Draw a card. Give it (1) less cost." },
+
+    -- === EPIC HEROES ===
+    [126]= { id = 126,faction = "Law",     name = "JUDGE HOLLIDAY", type = "Hero",     cost = 0, atk = 0, hp = 25, rarity = "Epic",      text = "Hero Power (2 Grit): Give a friendly Unit +2/+2 and Immune this turn." },
+    [127]= { id = 127,faction = "Outlaw",  name = "JESSE JAMES",    type = "Hero",     cost = 0, atk = 0, hp = 20, rarity = "Epic",      text = "Hero Power (1 Grit): Deal 1 damage to a random enemy for each Outlaw you control." },
+    [128]= { id = 128,faction = "Wild",    name = "THUNDERHAWK",    type = "Hero",     cost = 0, atk = 0, hp = 28, rarity = "Epic",      text = "Hero Power (3 Grit): Summon a 3/3 Spirit Wolf with Guardian." },
+    [129]= { id = 129,faction = "Mythos",  name = "THE PALE RIDER", type = "Hero",     cost = 0, atk = 0, hp = 22, rarity = "Epic",      text = "Hero Power (2 Grit): Give a Unit Lethal. If it already has Lethal, destroy it instead." },
+    [130]= { id = 130,faction = "Saloon",  name = "BIG NOSE KATE",  type = "Hero",     cost = 0, atk = 0, hp = 25, rarity = "Epic",      text = "Hero Power (2 Grit): Draw a card. If it costs 3 or less, play it for free." },
 }
 
 -- ==========================================

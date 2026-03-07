@@ -77,10 +77,10 @@ body {
 #game-container {
     position: absolute;
     width: 100vw; height: 100vh;
-    background: transparent; 
+    background: #0d0806;
     display: flex; flex-direction: column; justify-content: space-between;
 }
-/* Pokud máš obrázek stolu, odkomentuj: */
+/* Pokud máš obrázek stolu, odkomentuj a smaž řádek background výše: */
 /* #game-container { background: url('img/table_bg.jpg') no-repeat center center/cover; } */
 
 /* --- TEXT & FONTS --- */
@@ -107,6 +107,22 @@ h1, h2, h3, div, span { text-shadow: 2px 2px 4px #000; }
 }
 .menu-btn:hover { background: #d4af37; color: black; }
 
+/* --- CONFIRM OVERLAY --- */
+#confirm-overlay {
+    position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+    background: rgba(0, 0, 0, 0.85); z-index: 6000;
+    display: flex; align-items: center; justify-content: center;
+}
+.confirm-content {
+    text-align: center; color: #f4e4bc;
+    border: 4px solid #d4af37; padding: 40px 60px;
+    background: #2e1e19; border-radius: 10px;
+    box-shadow: 0 0 50px rgba(212, 175, 55, 0.3);
+}
+.confirm-content h2 { font-size: 40px; color: #d4af37; margin: 0 0 10px; font-family: 'Rye', serif; }
+.confirm-content p { font-size: 18px; color: #aaa; margin-bottom: 30px; font-family: sans-serif; }
+.confirm-btn-row { display: flex; gap: 20px; justify-content: center; }
+
 /* --- HERO SELECTION --- */
 .hero-selection-overlay {
     position: absolute; top: 0; left: 0; width: 100%; height: 100%;
@@ -122,6 +138,8 @@ h1, h2, h3, div, span { text-shadow: 2px 2px 4px #000; }
     box-shadow: 0 0 20px rgba(0,0,0,0.8);
 }
 .hero-option:hover img { border-color: gold; box-shadow: 0 0 30px gold; }
+.hero-cancel-btn { margin-top: 30px; opacity: 0.7; font-size: 16px; padding: 10px 30px; }
+.hero-cancel-btn:hover { opacity: 1; }
 
 /* --- HERO & UI --- */
 .player-area { position: relative; height: 42vh; width: 100%; pointer-events: none; }
@@ -259,34 +277,83 @@ h1, h2, h3, div, span { text-shadow: 2px 2px 4px #000; }
     filter: drop-shadow(0 8px 32px rgba(0,0,0,0.85));
 }
 
-#card-zoom-img {
-    width: 230px;
-    height: 345px;
-    object-fit: cover;
+#card-zoom-face {
+    position: relative;
+    width: 320px;
+    height: 480px;
     border-radius: 10px 0 0 10px;
     border: 2px solid rgba(212,175,55,0.6);
     border-right: none;
+    overflow: hidden;
+    flex-shrink: 0;
+}
+
+/* Rarity varianty pro card-zoom-face */
+#card-zoom-face.r-common    { border-color: #757575; box-shadow: 0 0 8px  rgba(117,117,117,0.4); background: linear-gradient(160deg,#2a2a2a,#181818); }
+#card-zoom-face.r-uncommon  { border-color: #43a047; box-shadow: 0 0 14px rgba(67,160,71,0.6);   background: linear-gradient(160deg,#1a2e1a,#0a140a); }
+#card-zoom-face.r-rare      { border-color: #1e88e5; box-shadow: 0 0 22px rgba(30,136,229,0.7);  background: linear-gradient(160deg,#0a1a2e,#060d1a); }
+#card-zoom-face.r-epic      { border-color: #8e24aa; box-shadow: 0 0 28px rgba(142,36,170,0.8);  background: linear-gradient(160deg,#1e0a2e,#0d0614); }
+#card-zoom-face.r-legendary {
+    border-color: #ff8f00;
+    background: linear-gradient(160deg,#2e1a00,#140c00);
+    animation: legendaryCardGlow 1.5s ease-in-out infinite alternate;
+}
+
+#cz-rarity-badge {
+    position: absolute; top: 5px; left: 50%; transform: translateX(-50%);
+    font-family: 'Rye', serif; font-size: 7px; letter-spacing: 1px;
+    text-transform: uppercase; padding: 2px 7px; border-radius: 3px;
+    white-space: nowrap; z-index: 5; pointer-events: none;
+}
+#card-zoom-face.r-common   #cz-rarity-badge { background: #424242; color: #bdbdbd; }
+#card-zoom-face.r-uncommon #cz-rarity-badge { background: #1b5e20; color: #a5d6a7; }
+#card-zoom-face.r-rare     #cz-rarity-badge { background: #0d47a1; color: #90caf9; }
+#card-zoom-face.r-epic     #cz-rarity-badge { background: #4a148c; color: #e1bee7; }
+#card-zoom-face.r-legendary #cz-rarity-badge {
+    background: #e65100; color: #ffe0b2;
+    animation: legendaryBadgePulse 1s ease-in-out infinite;
+}
+
+#cz-rarity-line {
+    position: absolute; bottom: 0; left: 0; right: 0;
+    height: 3px; z-index: 6; pointer-events: none;
+    border-radius: 0 0 0 8px;
+}
+#card-zoom-face.r-common   #cz-rarity-line { background: #757575; }
+#card-zoom-face.r-uncommon #cz-rarity-line { background: #43a047; }
+#card-zoom-face.r-rare     #cz-rarity-line { background: #1e88e5; }
+#card-zoom-face.r-epic     #cz-rarity-line { background: #8e24aa; }
+#card-zoom-face.r-legendary #cz-rarity-line {
+    background: linear-gradient(90deg, #ff8f00, #ffe082, #ff8f00);
+    background-size: 200% 100%;
+    animation: legendaryLineShift 2s linear infinite;
+}
+
+#card-zoom-img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
     display: block;
 }
 
 #card-zoom-info {
-    width: 180px;
+    width: 230px;
     background: linear-gradient(160deg, #1a0e06 0%, #0d0602 100%);
     border: 2px solid rgba(212,175,55,0.6);
     border-left: 1px solid rgba(212,175,55,0.25);
     border-radius: 0 10px 10px 0;
-    padding: 14px 12px;
+    padding: 16px 14px;
     display: flex;
     flex-direction: column;
-    gap: 5px;
-    height: 341px;
+    gap: 7px;
+    height: 476px;
     box-sizing: border-box;
     overflow: hidden;
 }
 
 #cz-name {
     font-family: 'Rye', serif;
-    font-size: 14px;
+    font-size: 17px;
     color: #d4af37;
     text-transform: uppercase;
     letter-spacing: 0.5px;
@@ -294,30 +361,30 @@ h1, h2, h3, div, span { text-shadow: 2px 2px 4px #000; }
 }
 
 #cz-meta {
-    font-size: 10px;
+    font-size: 12px;
     color: #8a7560;
     font-family: sans-serif;
 }
 
 #cz-cost {
-    font-size: 12px;
+    font-size: 14px;
     color: #00bcd4;
     font-family: sans-serif;
     font-weight: bold;
 }
 
 #cz-stats {
-    font-size: 13px;
+    font-size: 15px;
     color: #eee;
     font-family: sans-serif;
 }
 
 #cz-keywords {
-    font-size: 10px;
+    font-size: 12px;
     color: #d4af37;
     font-family: sans-serif;
     font-style: italic;
-    min-height: 14px;
+    min-height: 16px;
 }
 
 #cz-divider {
@@ -327,16 +394,16 @@ h1, h2, h3, div, span { text-shadow: 2px 2px 4px #000; }
 }
 
 #cz-text {
-    font-size: 11px;
+    font-size: 13px;
     color: #ccc;
     font-family: sans-serif;
-    line-height: 1.5;
+    line-height: 1.6;
     flex: 1;
     overflow: hidden;
 }
 
 #cz-gear {
-    font-size: 10px;
+    font-size: 12px;
     color: #a0916e;
     font-family: sans-serif;
     margin-top: 4px;
@@ -820,4 +887,228 @@ h1, h2, h3, div, span { text-shadow: 2px 2px 4px #000; }
 @keyframes packBtnAppear {
     from { opacity: 0; transform: translateY(16px) scale(0.9); }
     to   { opacity: 1; transform: translateY(0)    scale(1); }
+}
+
+/* NOVÉ: Fullscreen Overlay */
+#fullscreen-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background: rgba(0, 0, 0, 0.9);
+    z-index: 9999; /* Musí být nejvýš */
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    animation: fadeIn 0.3s ease;
+}
+
+#fullscreen-img {
+    max-height: 90vh;
+    max-width: 90vw;
+    border-radius: 15px;
+    box-shadow: 0 0 50px rgba(212, 175, 55, 0.5);
+    border: 3px solid #d4af37;
+    transition: transform 0.2s;
+}
+
+#fullscreen-img:hover {
+    transform: scale(1.02);
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+/* ==========================================
+   SHOW CARD OVERLAY (NUI showCard callback)
+   ========================================== */
+#show-card-overlay {
+    position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
+    background: rgba(0, 0, 0, 0.82);
+    z-index: 10000;
+    display: flex; align-items: center; justify-content: center;
+    animation: fadeIn 0.25s ease;
+    cursor: pointer;
+}
+
+#show-card-inner {
+    display: flex; flex-direction: row; align-items: flex-start;
+    gap: 0; cursor: default;
+    filter: drop-shadow(0 12px 48px rgba(0,0,0,0.95));
+    animation: showCardEnter 0.3s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@keyframes showCardEnter {
+    from { opacity: 0; transform: scale(0.8) translateY(30px); }
+    to   { opacity: 1; transform: scale(1)   translateY(0); }
+}
+
+#show-card-face {
+    position: relative;
+    width: 380px; height: 570px;
+    border-radius: 14px 0 0 14px;
+    overflow: hidden;
+    border: 3px solid #1a100e;
+    border-right: none;
+    background: #2e1e19;
+    flex-shrink: 0;
+}
+
+#show-card-img {
+    width: 100%; height: 100%;
+    object-fit: cover; display: block;
+}
+
+/* Rarity varianty – shodné s .pack-slot-face */
+#show-card-face.r-common    { border-color: #757575; box-shadow: 0 0 8px  rgba(117,117,117,0.4); background: linear-gradient(160deg,#2a2a2a,#181818); }
+#show-card-face.r-uncommon  { border-color: #43a047; box-shadow: 0 0 14px rgba(67,160,71,0.6);   background: linear-gradient(160deg,#1a2e1a,#0a140a); }
+#show-card-face.r-rare      { border-color: #1e88e5; box-shadow: 0 0 22px rgba(30,136,229,0.7);  background: linear-gradient(160deg,#0a1a2e,#060d1a); }
+#show-card-face.r-epic      { border-color: #8e24aa; box-shadow: 0 0 28px rgba(142,36,170,0.8);  background: linear-gradient(160deg,#1e0a2e,#0d0614); }
+#show-card-face.r-legendary {
+    border-color: #ff8f00;
+    background: linear-gradient(160deg,#2e1a00,#140c00);
+    animation: legendaryCardGlow 1.5s ease-in-out infinite alternate;
+}
+
+#show-card-rarity-badge {
+    position: absolute; top: 8px; left: 50%; transform: translateX(-50%);
+    font-family: 'Rye', serif; font-size: 9px; letter-spacing: 1.5px;
+    text-transform: uppercase; padding: 3px 10px; border-radius: 4px;
+    white-space: nowrap; z-index: 5; pointer-events: none;
+}
+#show-card-face.r-common   #show-card-rarity-badge { background: #424242; color: #bdbdbd; }
+#show-card-face.r-uncommon #show-card-rarity-badge { background: #1b5e20; color: #a5d6a7; }
+#show-card-face.r-rare     #show-card-rarity-badge { background: #0d47a1; color: #90caf9; }
+#show-card-face.r-epic     #show-card-rarity-badge { background: #4a148c; color: #e1bee7; }
+#show-card-face.r-legendary #show-card-rarity-badge {
+    background: #e65100; color: #ffe0b2;
+    animation: legendaryBadgePulse 1s ease-in-out infinite;
+}
+
+#show-card-name-tag {
+    position: absolute; bottom: 0; left: 0; right: 0;
+    background: linear-gradient(transparent, rgba(0,0,0,0.92));
+    color: #f4e4bc; font-family: 'Rye', serif;
+    font-size: 11px; text-align: center;
+    padding: 20px 6px 6px; pointer-events: none; z-index: 5;
+    letter-spacing: 0.5px;
+}
+
+#show-card-rarity-line {
+    position: absolute; bottom: 0; left: 0; right: 0;
+    height: 4px; z-index: 6; pointer-events: none;
+    border-radius: 0 0 0 11px;
+}
+#show-card-face.r-common   #show-card-rarity-line { background: #757575; }
+#show-card-face.r-uncommon #show-card-rarity-line { background: #43a047; }
+#show-card-face.r-rare     #show-card-rarity-line { background: #1e88e5; }
+#show-card-face.r-epic     #show-card-rarity-line { background: #8e24aa; }
+#show-card-face.r-legendary #show-card-rarity-line {
+    background: linear-gradient(90deg, #ff8f00, #ffe082, #ff8f00);
+    background-size: 200% 100%;
+    animation: legendaryLineShift 2s linear infinite;
+}
+
+/* Info panel vedle karty */
+#show-card-info {
+    width: 260px; min-height: 570px;
+    background: linear-gradient(160deg, #1a0e06 0%, #0d0602 100%);
+    border: 3px solid rgba(212,175,55,0.5);
+    border-left: 1px solid rgba(212,175,55,0.2);
+    border-radius: 0 14px 14px 0;
+    padding: 18px 14px 14px;
+    display: flex; flex-direction: column; gap: 8px;
+    box-sizing: border-box;
+}
+
+#sc-name {
+    font-family: 'Rye', serif; font-size: 16px;
+    color: #d4af37; text-transform: uppercase;
+    letter-spacing: 0.5px; line-height: 1.2;
+}
+#sc-meta { font-size: 11px; color: #8a7560; font-family: sans-serif; }
+#sc-cost { font-size: 13px; color: #00bcd4; font-family: sans-serif; font-weight: bold; }
+#sc-stats { font-size: 14px; color: #eee; font-family: sans-serif; }
+#sc-divider { height: 1px; background: rgba(212,175,55,0.2); margin: 2px 0; }
+#sc-text {
+    font-size: 13px; color: #ccc; font-family: sans-serif;
+    line-height: 1.6; flex: 1; font-style: italic;
+}
+
+#show-card-close-btn {
+    margin-top: auto; padding: 10px 0; width: 100%;
+    background: #3e2723; color: #d4af37;
+    border: 1px solid #d4af37; border-radius: 6px;
+    font-family: 'Rye', serif; font-size: 13px;
+    cursor: pointer; letter-spacing: 1px;
+    transition: background 0.2s, color 0.2s;
+}
+#show-card-close-btn:hover { background: #d4af37; color: #1a0a00; }
+
+/* ==========================================
+   DEBUG MÓD
+   ========================================== */
+#debug-badge {
+    position: fixed;
+    top: 8px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(220, 20, 20, 0.85);
+    color: #fff;
+    font-family: monospace;
+    font-size: 11px;
+    font-weight: bold;
+    padding: 3px 10px;
+    border-radius: 4px;
+    letter-spacing: 2px;
+    z-index: 9000;
+    pointer-events: none;
+    border: 1px solid #ff6b6b;
+}
+
+/* Karty protivníka viditelné v debug módu – červený tón */
+.debug-enemy-card {
+    outline: 2px solid rgba(255, 80, 80, 0.7);
+    filter: hue-rotate(10deg) brightness(0.85);
+    cursor: default !important;
+    pointer-events: auto;
+}
+
+/* Debug – rozšíření panelu historie (neomezený scroll) */
+#history-panel.debug-history {
+    max-height: 70vh;
+}
+
+/* Tlačítko pro AI deck inspector */
+#debug-deck-btns {
+    margin-top: 4px;
+}
+.debug-deck-btn {
+    background: rgba(180, 30, 30, 0.8);
+    color: #ffd;
+    border: 1px solid #ff6b6b;
+    border-radius: 5px;
+    font-family: 'Rye', serif;
+    font-size: 10px;
+    padding: 3px 8px;
+    cursor: pointer;
+    letter-spacing: 1px;
+}
+.debug-deck-btn:hover { background: rgba(220, 50, 50, 0.9); }
+
+/* Badge pro počet karet v deck inspectoru */
+.deck-inspector-count {
+    display: inline-block;
+    background: #d4af37;
+    color: #1a0a00;
+    font-size: 10px;
+    font-weight: bold;
+    padding: 1px 5px;
+    border-radius: 3px;
+    margin-left: 4px;
+    vertical-align: middle;
 }
