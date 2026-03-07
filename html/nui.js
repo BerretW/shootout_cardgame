@@ -70,6 +70,9 @@ $(document).ready(function() {
         if (data.which == 27) { // ESC
             if ($("#card-zoom").is(":visible")) {
                 hideCardZoom();
+            } else if ($("#pack-opening-overlay").is(":visible")) {
+                // ESC při pack openingu řeší pack-opening.js (otočí karty + sebere)
+                return;
             } else {
                 exitGame();
             }

@@ -2,7 +2,7 @@ Config = {}
 
 -- Rarity tiers: "Common", "Uncommon", "Rare", "Epic", "Legendary"
 -- token = true  →  karta se nevyskytuje v balíčcích (generuje se efekty)
-
+Config.Debug = true
 Config.Cards = {
     -- === LAW ===
     [1]  = { id = 1,  faction = "Law",     name = "IRON SHERIFF",  type = "Unit",     cost = 5, atk = 4, hp = 5,  rarity = "Rare",      text = "Battlecry: Give other Law units +1/+1" },
@@ -155,6 +155,10 @@ Config.Cards = {
 -- ==========================================
 -- rarityWeights: součet vah = 100 (procentuální šance)
 -- guaranteedRarity: tato rarита je zaručena alespoň jednou v balíčku (nil = žádná záruka)
+
+Config.Decks = {
+    cards_pack_1 = { name = "Deck 1", item = "cards_pack_1", limit = 25 },
+}
 
 Config.Packs = {
     starter = {

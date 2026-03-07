@@ -23,6 +23,7 @@ function showPackOpening(_packId, cardIds) {
 
     let revealedCount = 0;
     let dragState = null;
+    let escHandled = false;
 
     function revealCard(slot, inner) {
         inner.style.transition = 'transform 0.14s ease-out';
@@ -77,12 +78,29 @@ function showPackOpening(_packId, cardIds) {
         }
     }
 
+    function onKeyUp(e) {
+        if (e.which !== 27 || escHandled) return;
+        escHandled = true;
+        const unrevealed = row.querySelectorAll('.pack-slot:not(.revealed)');
+        unrevealed.forEach(slot => {
+            const inner = slot.querySelector('.pack-slot-inner');
+            revealCard(slot, inner);
+        });
+        if (unrevealed.length > 0) {
+            setTimeout(collectPackCards, 900);
+        } else {
+            collectPackCards();
+        }
+    }
+
     document.addEventListener('mousemove', onMouseMove);
     document.addEventListener('mouseup',   onMouseUp);
+    document.addEventListener('keyup',     onKeyUp);
 
     showPackOpening._cleanup = function() {
         document.removeEventListener('mousemove', onMouseMove);
         document.removeEventListener('mouseup',   onMouseUp);
+        document.removeEventListener('keyup',     onKeyUp);
     };
 
     // Sestavení slotů karet

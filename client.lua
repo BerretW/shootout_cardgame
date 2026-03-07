@@ -1,7 +1,14 @@
 -- ==========================================
 -- FILE: client.lua
 -- ==========================================
+local VorpCore = {}
+
+TriggerEvent("getCore", function(core)
+    VorpCore = core
+end)
 local display = false
+
+local MyDeck = {}
 
 local function constructCardName(cardID)
     local card = Config.Cards[cardID]
@@ -21,30 +28,40 @@ local function isThisACard(itemName)
     return nil
 end
 
-local function getMyCards()
-    local inventory = exports.vorp_inventory:getInventoryItems()
+local function getMyCards(inventory)
+
     local myCards = {}
+    print(json.encode(inventory, {indent = true}))
     for _, item in ipairs(inventory) do
         local cardID = isThisACard(item.name)
         if cardID then
-            table.insert(myCards, Config.Cards[cardID]) -- Přidáme celou kartu, ne jen ID, pro pohodlnější práci v UI
+            local count = item.amount or 1
+            for i = 1, count do
+                table.insert(myCards, Config.Cards[cardID]) -- Přidáme celou kartu, ne jen ID, pro pohodlnější práci v UI
+                -- print("^2[Shootout] Našel jsi kartu '" .. Config.Cards[cardID].name .. "x".. item.count .."' v inventáři!^0")
+            end
         end
     end
     return myCards
 end
 
+
+RegisterNetEvent("shootout:updateMyCards")
+AddEventHandler("shootout:updateMyCards", function(cards)
+    MyDeck = cards
+end)
+
 -- Otevření UI a start hry
 RegisterNetEvent('shootout:startMultiplayer')
 AddEventHandler('shootout:startMultiplayer', function(data)
     SetDisplay(true)
-    local MyCards = getMyCards()
-    -- print(json.encode(MyCards))
+
     SendNUIMessage({
         type = "start_game",
         isFirst = data.isFirst,
         opponentName = data.opponentName,
         cards = Config.Cards,
-        myCards = MyCards
+        myCards = MyDeck
     })
 end)
 
@@ -97,6 +114,11 @@ function showCard(cardId)
     })
 end
 
+RegisterNetEvent('shootout:showCard')
+AddEventHandler('shootout:showCard', function(cardId)
+    showCard(cardId)
+end)
+
 RegisterCommand("showcard", function(source, args)
     local cardId = tonumber(args[1])
     if not cardId then
@@ -120,8 +142,6 @@ RegisterNUICallback("exit", function(data, cb)
     SetNuiFocus(false, false)
     print("^1[Shootout] Hra ukončena klientem.^0")
     
-    -- Informuj server, že hráč to vzdal (pokud je ve hře)
-    -- TriggerServerEvent('shootout:surrender') -- Doporučuji implementovat na serveru
     
     cb('ok')
 end)
@@ -133,13 +153,21 @@ RegisterNUICallback("sendAction", function(data, cb)
 end)
 
 RegisterCommand("testgame", function(source, args)
+    local success = VorpCore.Callback.TriggerAwait('shootout:getPlayerDeck')
+    if success then
+        MyDeck = getMyCards(success)
+        -- print("^2[Shootout] Načteno " .. #MyDeck .. " karet z inventáře.^0")
+        -- print(json.encode(MyDeck, {indent = true}))
+    else
+        print("^1[Shootout] Nepodařilo se načíst karty z inventáře.^0")
+    end
+    -- print(json.encode(MyDeck, {indent = true}))
     SetDisplay(true)
-    local MyCards = getMyCards()
-    print(json.encode(MyCards))
+
     SendNUIMessage({
         type = "start_singleplayer",
         cards = Config.Cards,
-        myCards = MyCards,
+        myCards = MyDeck,
         debug = true
     })
     TriggerEvent('chat:addMessage', {
@@ -153,11 +181,18 @@ local MIN_CARDS = 20
 
 -- Příkaz /duel [ID] pro výzvu, nebo /duel ano pro přijetí
 RegisterCommand("duel", function(source, args)
+        local success = VorpCore.Callback.TriggerAwait('shootout:getPlayerDeck')
+    if success then
+        MyDeck = getMyCards(success)
+        print("^2[Shootout] Načteno " .. #MyDeck .. " karet z inventáře.^0")
+    else
+        print("^1[Shootout] Nepodařilo se načíst karty z inventáře.^0")
+    end
     local arg1 = args[1]
 
     if arg1 == "ano" then
         -- Přijetí výzvy
-        local myCards = getMyCards()
+        local myCards = MyDeck
         if #myCards < MIN_CARDS then
             TriggerEvent('chat:addMessage', {
                 color = {255, 0, 0},
@@ -176,7 +211,7 @@ RegisterCommand("duel", function(source, args)
             })
             return
         end
-        local myCards = getMyCards()
+        local myCards = MyDeck
         if #myCards < MIN_CARDS then
             TriggerEvent('chat:addMessage', {
                 color = {255, 0, 0},
